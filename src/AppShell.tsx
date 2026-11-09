@@ -59,7 +59,7 @@ export function AppShell() {
 
   if (!ready) return <main className="auth-shell"><section className="auth-card">
     <img className="brand-logo" src="./pilario-logo.png" alt="" />
-    <div><h1>{APP_INFO.name}</h1><p className="auth-tagline">{APP_INFO.tagline}</p></div>
+    <div className="auth-heading"><h1>{APP_INFO.name}</h1><p className="auth-tagline">{APP_INFO.tagline}</p></div>
     {error && <div className="auth-error">{error}</div>}
     <button className="btn-primary" onClick={() => connect(true)} disabled={busy}>{restoring ? "Reconectando con Google…" : busy ? "Conectando…" : "Continuar con Google"}</button>
     <p className="auth-meta">Tus datos se guardan de forma privada en tu Google Drive.</p>

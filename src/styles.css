@@ -234,7 +234,7 @@ code.k{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;backgr
 .sync-error{color:var(--warn)}
 
 /* Pilario 2.2 */
-.brand-logo{width:88px;height:88px;border-radius:24px;object-fit:cover;box-shadow:var(--shadow)}
+.brand-logo{width:140px;height:140px;margin:0 auto;display:block;border-radius:32px;object-fit:cover;box-shadow:var(--shadow)}
 .auth-tagline{font-size:16px;line-height:1.5;margin-top:6px}
 .beta-access{display:grid;gap:5px;padding:14px;border-radius:14px;background:var(--sage-soft);font-size:13px;color:var(--muted)}
 .beta-access strong{color:var(--ink)}.beta-access a{color:var(--link);font-weight:700;text-decoration:none;margin-top:3px}
@@ -244,3 +244,4 @@ code.k{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;backgr
 .settings-actions{display:flex;gap:10px;flex-wrap:wrap;padding-top:6px}.settings-actions .btn-primary,.settings-actions .btn-secondary,.settings-actions .btn-danger{width:auto;min-height:42px;padding:0 15px;display:inline-flex;align-items:center;gap:7px;border-radius:12px;font-weight:700}
 .btn-secondary{background:var(--surface);border:1px solid var(--line);color:var(--ink)}.btn-danger{background:#fff1f0;color:#a23b34;border:1px solid #f1c6c2}
 @media(max-width:600px){.color-grid{grid-template-columns:1fr}.account-badge span{display:none}}
+.auth-heading{text-align:center}

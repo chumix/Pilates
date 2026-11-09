@@ -1,0 +1,24 @@
+# Dependencias y compilación
+node_modules/
+dist/
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+
+# Entorno local
+.env
+.env.local
+.env.*.local
+
+# Node portátil
+.tools/
+
+# Credenciales
+credentials.json
+credentials*.json
+client_secret_*.json
+service-account*.json
+
+# Registros y sistema
+*.log*.DS_Store
+Thumbs.db

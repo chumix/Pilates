@@ -43,3 +43,11 @@ La app busca en Drive un archivo con `appProperties.appId = pilates-angela`. Si 
 - Google Sheets sirve para una primera versión con un único propietario, no para concurrencia multiusuario intensiva.
 - El token OAuth vive solo en memoria y se pierde al recargar, por lo que se vuelve a pedir autorización.
 - Antes de producción añade pruebas, política de privacidad, exportación/borrado, auditoría y una estrategia de conflictos/offline.
+
+## Versionado
+La versión visible en la aplicación y el histórico se mantienen en `src/appInfo.ts`. El historial público está en `CHANGELOG.md`. La versión de esta entrega es `2.1.0` y el tag recomendado es `v2.1.0`.
+
+## Pilario 2.2.0 y acceso beta
+Configura `VITE_BETA_FORM_URL` con el enlace público de un Google Form. Mantén Google Auth Platform en estado Testing y añade manualmente en Audience > Test users los correos aprobados. Si no se configura el formulario, el botón Solicitar acceso abre un correo para chumix@gmail.com.
+
+La aplicación intenta reconectar después de una recarga. Por las restricciones de OAuth en aplicaciones estáticas, Google puede volver a pedir interacción en algunos navegadores o cuando el token haya expirado.

@@ -1,1 +1,18 @@
-{"name":"Pilates Ángela","short_name":"Pilates","start_url":"./","display":"standalone","background_color":"#f8f9fa","theme_color":"#84a98c","lang":"es","icons":[]}
+{
+  "name": "Pilario",
+  "short_name": "Pilario",
+  "description": "Gestión sencilla para profesionales de Pilates",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f8f9fa",
+  "theme_color": "#5b8578",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "./pilario-logo.png",
+      "sizes": "1280x1280",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

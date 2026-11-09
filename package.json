@@ -1,9 +1,39 @@
 {
-  "name": "pilates-angela",
+  "name": "pilario",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.2.1",
   "type": "module",
-  "scripts": {"dev":"vite","build":"tsc -b && vite build","preview":"vite preview","lint":"eslint ."},
-  "dependencies": {"@vitejs/plugin-react":"latest","htm":"^3.1.1","react":"^18.3.1","react-dom":"^18.3.1","vite":"latest"},
-  "devDependencies": {"@eslint/js":"latest","@types/react":"^18.3.3","@types/react-dom":"^18.3.0","eslint":"latest","eslint-plugin-react-hooks":"latest","eslint-plugin-react-refresh":"latest","globals":"latest","typescript":"latest","typescript-eslint":"latest"}
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "htm": "^3.1.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "@eslint/js": "latest",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "eslint": "latest",
+    "eslint-plugin-react-hooks": "latest",
+    "eslint-plugin-react-refresh": "latest",
+    "globals": "latest",
+    "typescript": "latest",
+    "typescript-eslint": "latest"
+  },
+  "description": "Gestión sencilla para profesionales de Pilates.",
+  "author": {
+    "name": "chumix",
+    "email": "chumix@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chumix/Pilates.git"
+  }
 }

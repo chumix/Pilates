@@ -1,0 +1,1 @@
+{"root":["./src/appshell.tsx","./src/appinfo.ts","./src/main.tsx","./src/vite-env.d.ts","./src/auth/googleidentity.ts","./src/google/sheetsrepository.ts","./src/google/types.ts","./src/legacy/legacyapp.tsx"],"version":"6.0.3"}

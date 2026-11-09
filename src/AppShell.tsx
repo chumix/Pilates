@@ -1,8 +1,70 @@
-import {useEffect,useRef,useState} from "react";import {LegacyApp} from "./legacy/LegacyApp";import {authorize} from "./auth/googleIdentity";import {SheetsRepository} from "./google/sheetsRepository";import type {GoogleUser,SyncState} from "./google/types";
-const KEY="pilates-angela-v1";
-export function AppShell(){const clientId=import.meta.env.VITE_GOOGLE_CLIENT_ID as string|undefined;const [user,setUser]=useState<GoogleUser|null>(null);const [ready,setReady]=useState(false);const [busy,setBusy]=useState(false);const [error,setError]=useState("");const [sync,setSync]=useState<SyncState>("idle");const repo=useRef<SheetsRepository|null>(null);const timer=useRef<number|undefined>(undefined);
-useEffect(()=>()=>{delete window.pilatesCloud},[]);
-async function login(){if(!clientId){setError("Falta VITE_GOOGLE_CLIENT_ID. Copia .env.example a .env.local y añade tu OAuth Client ID.");return}setBusy(true);setError("");try{const a=await authorize(clientId);setUser(a.user);setSync("loading");const r=new SheetsRepository(a.token);repo.current=r;await r.init();const cloud=await r.load();if(cloud)localStorage.setItem(KEY,JSON.stringify(cloud));else{const local=localStorage.getItem(KEY);if(local)await r.save(JSON.parse(local))}window.pilatesCloud={save:(db)=>{setSync("saving");window.clearTimeout(timer.current);timer.current=window.setTimeout(async()=>{try{await r.save(db);setSync("synced")}catch(e){setSync("error");setError(e instanceof Error?e.message:"Error de sincronización")}},1200)}};setSync("synced");setReady(true)}catch(e){setError(e instanceof Error?e.message:"No se pudo iniciar sesión");setSync("error")}finally{setBusy(false)}}
-function logout(){delete window.pilatesCloud;repo.current=null;setUser(null);setReady(false);setSync("idle")}
-if(!ready)return <main className="auth-shell"><section className="auth-card"><div className="auth-mark">P</div><div><h1>Pilates Ángela</h1><p>Accede con Google para cargar o crear tu hoja privada de datos en Drive.</p></div>{error&&<div className="auth-error">{error}</div>}<button className="btn-primary" onClick={login} disabled={busy}>{busy?"Conectando…":"Continuar con Google"}</button><div className="auth-meta">La aplicación solicita acceso a los archivos de Sheets que ella misma crea. No incluyas secretos OAuth en el frontend.</div></section></main>;
-return <><div className="sync-banner">{sync==="saving"?"Guardando en Drive…":sync==="error"?"Error de sincronización":"Sincronizado con Drive"}</div>{user&&<div className="account-badge">{user.picture&&<img src={user.picture} alt="" referrerPolicy="no-referrer"/>}<span>{user.email}</span><button onClick={logout}>Salir</button></div>}<LegacyApp/></>}
+import { useCallback, useEffect, useRef, useState } from "react";
+import { LegacyApp } from "./legacy/LegacyApp";
+import { authorize } from "./auth/googleIdentity";
+import { SheetsRepository } from "./google/sheetsRepository";
+import type { GoogleUser, SyncState } from "./google/types";
+import { APP_INFO } from "./appInfo";
+const KEY = "pilates-angela-v1";
+const CONNECTED_KEY = "pilario-google-connected";
+
+export function AppShell() {
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
+  const betaFormUrl = import.meta.env.VITE_BETA_FORM_URL as string | undefined;
+  const [user, setUser] = useState<GoogleUser | null>(null);
+  const [ready, setReady] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [restoring, setRestoring] = useState(localStorage.getItem(CONNECTED_KEY) === "1");
+  const [error, setError] = useState("");
+  const [sync, setSync] = useState<SyncState>("idle");
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const repo = useRef<SheetsRepository | null>(null);
+  const timer = useRef<number | undefined>(undefined);
+
+  const disconnect = useCallback(() => {
+    delete window.pilatesCloud;
+    repo.current = null;
+    localStorage.removeItem(CONNECTED_KEY);
+    setUser(null); setReady(false); setSync("idle"); setLastSyncedAt(null);
+  }, []);
+
+  const connect = useCallback(async (interactive = true) => {
+    if (!clientId) { setError("La conexión con Google no está configurada."); setRestoring(false); return; }
+    setBusy(true); setError("");
+    try {
+      const authorization = await authorize(clientId, interactive);
+      setUser(authorization.user); setSync("loading");
+      const repository = new SheetsRepository(authorization.token);
+      repo.current = repository;
+      await repository.init();
+      const cloudData = await repository.load();
+      if (cloudData) localStorage.setItem(KEY, JSON.stringify(cloudData));
+      else { const localData = localStorage.getItem(KEY); if (localData) await repository.save(JSON.parse(localData)); }
+      const markSynced = () => { setSync("synced"); setLastSyncedAt(new Date().toISOString()); };
+      const syncNow = async (db: unknown) => { setSync("saving"); try { await repository.save(db); markSynced(); } catch (e) { setSync("error"); throw e; } };
+      window.pilatesCloud = {
+        save: (db) => { setSync("saving"); window.clearTimeout(timer.current); timer.current = window.setTimeout(() => syncNow(db).catch(e => setError(e instanceof Error ? e.message : "Error de sincronización")), 1200); },
+        syncNow,
+        disconnect,
+        sheetUrl: repository.sheetUrl,
+      };
+      localStorage.setItem(CONNECTED_KEY, "1"); markSynced(); setReady(true);
+    } catch (e) {
+      if (interactive) setError(e instanceof Error ? e.message : "No se pudo iniciar sesión");
+      localStorage.removeItem(CONNECTED_KEY);
+      setSync("idle"); setReady(false);
+    } finally { setBusy(false); setRestoring(false); }
+  }, [clientId, disconnect]);
+
+  useEffect(() => { if (localStorage.getItem(CONNECTED_KEY) === "1") connect(false); return () => { delete window.pilatesCloud; }; }, [connect]);
+
+  if (!ready) return <main className="auth-shell"><section className="auth-card">
+    <img className="brand-logo" src="./pilario-logo.png" alt="" />
+    <div><h1>{APP_INFO.name}</h1><p className="auth-tagline">{APP_INFO.tagline}</p></div>
+    {error && <div className="auth-error">{error}</div>}
+    <button className="btn-primary" onClick={() => connect(true)} disabled={busy}>{restoring ? "Reconectando con Google…" : busy ? "Conectando…" : "Continuar con Google"}</button>
+    <p className="auth-meta">Tus datos se guardan de forma privada en tu Google Drive.</p>
+    <div className="beta-access"><strong>Beta privada</strong><span>Solo pueden entrar cuentas autorizadas.</span><a href={betaFormUrl || `mailto:${APP_INFO.developer.email}?subject=Solicitud%20de%20acceso%20a%20Pilario`} target={betaFormUrl ? "_blank" : undefined} rel="noreferrer">Solicitar acceso</a></div>
+  </section></main>;
+
+  return <><div className="account-badge">{user?.picture && <img src={user.picture} alt="" referrerPolicy="no-referrer"/>}<span>{user?.email}</span><button onClick={disconnect}>Salir</button></div><LegacyApp user={user} sync={sync} lastSyncedAt={lastSyncedAt}/></>;
+}

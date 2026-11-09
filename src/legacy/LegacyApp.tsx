@@ -3,6 +3,7 @@
 import React, {useState,useEffect,useMemo,useRef,useCallback,useContext,createContext} from "react";
 import htm from "htm";
 const html=htm.bind(React.createElement);
+import { APP_INFO, DEFAULT_BRANDING, VERSION_HISTORY } from "../appInfo";
 
 /* ---------- utilidades ---------- */
 const KEY="pilates-angela-v1";
@@ -109,7 +110,7 @@ function seed(){
   attendance["sl6|"+w(-4)]=["s1","s6","s8"];
   attendance["sl1|"+w(0)]=["s2","s3","s4","s7"];
   attendance["sl3|"+w(1)]=["s1","s2","s6","s8"];
-  return {v:1,students,exercises,templates,slots,attendance,settings:{url:"",status:"local",lastSync:null}};
+  return {v:1,students,exercises,templates,slots,attendance,settings:{branding:{...DEFAULT_BRANDING},status:"local",lastSync:null}};
 }
 function load(){
   try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);if(d&&d.v===1)return d;}}catch(e){}
@@ -153,13 +154,13 @@ function Avatar({name,size=44}){
   return html`<span className="av" style=${{width:size,height:size,fontSize:size*0.36,background:"var(--a"+avIdx(name)+")"}}>${initials(name)}</span>`;
 }
 function Header({title,sub,right}){
-  const {db,open}=useC();
-  const sync=db.settings.status==="sync";
+  const {open,runtime}=useC();
+  const sync=runtime.sync;
+  const syncLabel=sync==="saving"?"Guardando…":sync==="error"?"Error de sincronización":"Drive conectado";
   return html`<header className="hd">
     <div className="hd-main"><h1>${title}</h1>${sub&&html`<p className="sub">${sub}</p>`}</div>
     <div className="hd-right">
       ${right}
-      <button className=${"pill-sync"+(sync?" on":"")} onClick=${()=>open({k:"settings"})} aria-label=${sync?"Sincronizado. Abrir ajustes":"Modo local. Abrir ajustes"}><i></i><span>${sync?"Sincronizado":"Modo local"}</span></button>
       <button className="icon-btn" onClick=${()=>open({k:"settings"})} aria-label="Ajustes"><${Icon} n="sliders"/></button>
     </div>
   </header>`;
@@ -197,17 +198,20 @@ function presentIds(db,slot,date){const a=db.attendance[slot.id+"|"+date]||[];re
 
 /* ---------- INICIO ---------- */
 function Home(){
-  const {db,go,open,openSheet}=useC();
+  const {db,go,open,openSheet,runtime}=useC();
   const now=new Date();const today=iso(now);
   const h=now.getHours();
   const greet=h<13?"Buenos días":h<21?"Buenas tardes":"Buenas noches";
+  const branding={...DEFAULT_BRANDING,...(db.settings?.branding||{})};
+  const googleName=(runtime.user?.name||"").split(" ")[0];
+  const instructor=branding.instructorName||googleName||"Instructor/a";
   const slots=db.slots.filter(s=>s.day===dayIdx(now)).sort((a,b)=>a.time.localeCompare(b.time));
   const nowT=pad(h)+":"+pad(now.getMinutes());
   const nextId=(slots.find(s=>s.time>=nowT)||{}).id;
   const activos=db.students.filter(s=>s.active).length;
   const presentes=slots.reduce((n,s)=>n+presentIds(db,s,today).length,0);
   return html`<section className="screen">
-    <${Header} title=${greet+", Ángela"} sub=${fmtLong(now)}/>
+    <${Header} title=${greet+", "+instructor} sub=${fmtLong(now)}/>
     <div className="stats">
       <div className="stat hero"><b>${slots.length}</b><span>${slots.length===1?"clase hoy":"clases hoy"}</span></div>
       <div className="stat"><b>${activos}</b><span>alumnos activos</span></div>
@@ -662,55 +666,57 @@ function SlotForm({id,day,time,onClose}){
   <//>`;
 }
 
+
+async function resizeLogo(file){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>{const image=new Image();image.onload=()=>{const canvas=document.createElement("canvas");canvas.width=160;canvas.height=160;const ctx=canvas.getContext("2d");ctx.fillStyle="#ffffff";ctx.fillRect(0,0,160,160);const scale=Math.min(160/image.width,160/image.height);const w=image.width*scale,h=image.height*scale;ctx.drawImage(image,(160-w)/2,(160-h)/2,w,h);resolve(canvas.toDataURL("image/jpeg",.72))};image.onerror=reject;image.src=reader.result};reader.onerror=reject;reader.readAsDataURL(file)})}
+
 /* ---------- AJUSTES ---------- */
-const URL_RE=/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/(exec|dev)$/;
 function Settings(){
-  const {db,up,back,say,reset}=useC();
-  const [url,setUrl]=useState(db.settings.url);
-  const [err,setErr]=useState("");const [busy,setBusy]=useState(false);
-  const sync=db.settings.status==="sync";
-  const connect=()=>{
-    const u=url.trim();
-    if(!URL_RE.test(u)){setErr("La URL debe ser de tu implementación de Apps Script y acabar en /exec.");return}
-    setErr("");setBusy(true);
-    /* Prototipo: simula el envío. Sustituir por fetch(u,{method:"POST",body:JSON.stringify(db)}) al conectar el script real. */
-    setTimeout(()=>{up(d=>{d.settings={url:u,status:"sync",lastSync:new Date().toISOString()}});setBusy(false);say("Sincronización simulada completada")},900);
-  };
-  const disconnect=()=>{up(d=>{d.settings.status="local"});say("Vuelves al modo local")};
-  const paste=()=>{try{navigator.clipboard.readText().then(t=>setUrl(t)).catch(()=>{})}catch(e){}};
-  return html`<section className="screen">
+  const {db,up,back,reset,runtime,say}=useC();
+  const branding={...DEFAULT_BRANDING,...(db.settings?.branding||{})};
+  const syncLabels={idle:"Sin conexión",loading:"Cargando datos",synced:"Sincronizado",saving:"Guardando cambios",error:"Error de sincronización"};
+  const syncLabel=syncLabels[runtime.sync]||"Estado desconocido";
+  const lastSync=runtime.lastSyncedAt?new Intl.DateTimeFormat("es-ES",{dateStyle:"medium",timeStyle:"short"}).format(new Date(runtime.lastSyncedAt)):"Todavía no disponible";
+  const setBrand=(patch)=>up(d=>{d.settings={...d.settings,branding:{...DEFAULT_BRANDING,...(d.settings?.branding||{}),...patch}}});
+  const uploadLogo=async(e)=>{const file=e.target.files?.[0];if(!file)return;if(file.size>5*1024*1024){say("El archivo supera 5 MB");return}try{setBrand({logoDataUrl:await resizeLogo(file)});say("Logotipo actualizado")}catch{say("No se pudo procesar el logotipo")}};
+  const syncNow=async()=>{try{await window.pilatesCloud?.syncNow(db);say("Datos sincronizados")}catch{say("No se pudo sincronizar")}};
+  const style={"--sage":branding.primaryColor,"--sage-soft":branding.accentColor};
+  return html`<section className="screen" style=${style}>
     <button className="back" onClick=${back}><${Icon} n="l" size=${18}/>Volver</button>
-    <header className="hd"><div className="hd-main"><h1>Ajustes</h1><p className="sub" style=${{textTransform:"none"}}>Conexión con tu hoja de Google Sheets</p></div></header>
+    <header className="hd"><div className="hd-main"><h1>Ajustes</h1><p className="sub" style=${{textTransform:"none"}}>Personalización, conexión y versión de Pilario</p></div></header>
+
+    <div className="sect"><h2>Tu espacio</h2></div>
     <div className="card stack">
-      <div className="row"><span className=${"chip "+(sync?"ok":"")}><${Icon} n="cloud" size=${15}/>${sync?"Sincronizado":"Modo local"}</span>
-        ${sync&&db.settings.lastSync&&html`<span className="small muted">${new Intl.DateTimeFormat("es-ES",{dateStyle:"short",timeStyle:"short"}).format(new Date(db.settings.lastSync))}</span>`}</div>
-      <p className="small muted">${sync?"Tus datos se enviarían a la hoja privada de esta URL.":"Ahora mismo los datos viven solo en este navegador."}</p>
-      <${Field} label="URL de Google Apps Script" id="s-url"><input id="s-url" className="in" type="url" inputMode="url" value=${url} onInput=${e=>{setUrl(e.target.value);setErr("")}} placeholder="https://script.google.com/macros/s/…/exec" autoComplete="off" spellCheck="false"/><//>
-      ${err&&html`<p className="err" role="alert">${err}</p>`}
-      <div className="row wrap">
-        <button className="btn-primary grow" onClick=${connect} disabled=${busy||!url.trim()}>${busy?"Sincronizando…":sync?"Sincronizar de nuevo":"Guardar y sincronizar"}</button>
-        ${sync&&html`<button className="btn-soft" onClick=${disconnect}>Desconectar</button>`}
-      </div>
-      <div className="note"><${Icon} n="shield" size=${18}/><div>En este prototipo la sincronización es simulada: no sale ningún dato de tu dispositivo. El envío real se activa al conectar el script.</div></div>
+      <div className="brand-preview">${branding.logoDataUrl?html`<img src=${branding.logoDataUrl} alt="Logotipo personalizado"/>`:html`<img src="./pilario-logo.png" alt="Logotipo Pilario"/>`}<div><strong>${branding.studioName||APP_INFO.name}</strong><span>${branding.instructorName||runtime.user?.name||"Instructor/a"}</span></div></div>
+      <label>Nombre del instructor/a<input value=${branding.instructorName} placeholder=${runtime.user?.name||"Ej. Ángela"} onInput=${e=>setBrand({instructorName:e.target.value})}/></label>
+      <label>Nombre del estudio<input value=${branding.studioName} placeholder="Ej. Espacio Ángela Pilates" onInput=${e=>setBrand({studioName:e.target.value})}/></label>
+      <div className="color-grid"><label>Color principal<input type="color" value=${branding.primaryColor} onInput=${e=>setBrand({primaryColor:e.target.value})}/></label><label>Color suave<input type="color" value=${branding.accentColor} onInput=${e=>setBrand({accentColor:e.target.value})}/></label></div>
+      <label className="file-label">Logotipo personalizado<input type="file" accept="image/png,image/jpeg,image/webp" onChange=${uploadLogo}/><span>Elegir imagen</span></label>
+      ${branding.logoDataUrl&&html`<button className="btn-secondary" onClick=${()=>setBrand({logoDataUrl:""})}>Usar logotipo de Pilario</button>`}
+      <p className="small muted">La personalización se guarda en la pestaña Config del archivo de datos.</p>
     </div>
-    <div className="sect"><h2>Privacidad por diseño</h2></div>
+
+    <div className="sect"><h2>Google Drive</h2></div>
     <div className="card stack">
-      <p>Las fichas clínicas son datos de salud. La app no usa servidores propios: los datos van de tu dispositivo a tu hoja de Google, a la que solo accedes tú.</p>
-      <div className="tags"><span className="chip sm">Alumnos</span><span className="chip sm">Ejercicios</span><span className="chip sm">Plantillas</span><span className="chip sm">Clases</span><span className="chip sm">Asistencia</span></div>
-      <p className="small muted">Cada colección será una pestaña de la hoja, intercambiada como JSON mediante <code className="k">doGet</code> y <code className="k">doPost</code> en Apps Script.</p>
+      <div className="connection-title"><span className=${"connection-dot "+(runtime.sync==="error"?"error":runtime.sync==="saving"||runtime.sync==="loading"?"busy":"ok")}></span><div><strong>Google Drive conectado</strong><p className="small muted">${APP_INFO.dataFileName}</p></div></div>
+      <div className="kv"><span className="k">Estado</span><span className="v">${syncLabel}</span></div>
+      <div className="kv"><span className="k">Cuenta</span><span className="v">${runtime.user?.email||"Cuenta conectada"}</span></div>
+      <div className="kv"><span className="k">Último guardado</span><span className="v">${lastSync}</span></div>
+      <div className="settings-actions"><button className="btn-primary" onClick=${syncNow}><${Icon} n="cloud" size=${17}/>Sincronizar ahora</button>${window.pilatesCloud?.sheetUrl&&html`<a className="btn-secondary" href=${window.pilatesCloud.sheetUrl} target="_blank" rel="noreferrer">Abrir hoja de datos</a>`}<button className="btn-danger" onClick=${()=>window.pilatesCloud?.disconnect()}>Desconectar</button></div>
     </div>
-    <div className="sect"><h2>App instalable</h2></div>
-    <div className="card"><p className="small muted">El manifest y el service worker van incluidos. El navegador solo ofrece instalar la app y usarla sin conexión cuando la alojes en una dirección HTTPS propia.</p></div>
-    <div className="sect"><h2>Datos de ejemplo</h2></div>
-    <div className="card stack"><p className="small muted">Los alumnos y las notas de ejemplo son ficticios. Puedes volver a cargarlos en cualquier momento; se pierden los cambios actuales.</p>
-      <${ConfirmBtn} label="Restablecer datos de ejemplo" icon="activity" onYes=${reset}/></div>
+
+    <div className="sect"><h2>Versión de la aplicación</h2></div>
+    <div className="card stack"><div className="version-hero"><div><span className="version-number">v${APP_INFO.version}</span><strong>${APP_INFO.name}</strong></div><span className="small muted">${APP_INFO.releaseDate}</span></div><div className="kv"><span className="k">Desarrollador</span><span className="v">${APP_INFO.developer.name}</span></div><div className="kv"><span className="k">Contacto</span><span className="v"><a className="settings-link" href=${"mailto:"+APP_INFO.developer.email}>${APP_INFO.developer.email}</a></span></div></div>
+
+    <div className="sect"><h2>Histórico de cambios</h2></div><div className="version-list">${VERSION_HISTORY.map((release,index)=>html`<article className=${"card version-card "+(index===0?"current":"")} key=${release.version}><div className="version-head"><div><span className="version-number">v${release.version}</span><strong>${release.title}</strong></div><span className="small muted">${release.date}</span></div><ul className="change-list">${release.changes.map(change=>html`<li key=${change}>${change}</li>`)}</ul></article>`)}</div>
+
+    <div className="sect"><h2>Datos de ejemplo</h2></div><div className="card stack"><p className="small muted">Esta acción reemplaza los datos actuales por el conjunto de demostración.</p><${ConfirmBtn} label="Restablecer datos de ejemplo" icon="activity" onYes=${reset}/></div>
   </section>`;
 }
 
 /* ---------- APP ---------- */
 const NAV=[["home","Inicio","home"],["alumnos","Alumnos","users"],["ej","Ejercicios","activity"],["plan","Clases","clip"],["cal","Calendario","cal"]];
-function App(){
-  const [db,setDb]=useState(load);
+function App({runtime}){
+  const [db,setDb]=useState(()=>{const loaded=load();return {...loaded,settings:{...loaded.settings,branding:{...DEFAULT_BRANDING,...(loaded.settings?.branding||{})}}}});
   const [tab,setTab]=useState("home");
   const [stack,setStack]=useState([]);
   const [sheets,setSheets]=useState([]);
@@ -720,13 +726,13 @@ function App(){
   const up=useCallback(fn=>setDb(d=>{const n=structuredClone(d);fn(n);return n}),[]);
   const say=useCallback(m=>{setToast(m);clearTimeout(tRef.current);tRef.current=setTimeout(()=>setToast(""),2200)},[]);
   const screen=stack[stack.length-1]||null;
-  const ctx=useMemo(()=>({db,up,say,screen,
+  const ctx=useMemo(()=>({db,up,say,screen,runtime,
     go:k=>{setStack([]);setSheets([]);setTab(k);window.scrollTo(0,0)},
     open:s=>{setStack(a=>[...a,s]);window.scrollTo(0,0)},
     back:()=>{setStack(a=>a.slice(0,-1));window.scrollTo(0,0)},
     openSheet:s=>setSheets(a=>[...a,s]),
     reset:()=>{const n=seed();setDb(n);setStack([]);setSheets([]);say("Datos de ejemplo restablecidos")}
-  }),[db,up,say,screen]);
+  }),[db,up,say,screen,runtime]);
   const closeSheet=()=>setSheets(a=>a.slice(0,-1));
   const sheet=sheets[sheets.length-1];
   let view;
@@ -747,7 +753,7 @@ function App(){
     else if(sheet.k==="exForm")sv=html`<${ExerciseForm} key=${key} id=${sheet.id} onClose=${closeSheet}/>`;
   }
   return html`<${Ctx.Provider} value=${ctx}>
-    <main className="app" key=${(screen?screen.k+(screen.id||""):tab)}>${view}</main>
+    <main className="app" style=${{"--sage":db.settings.branding.primaryColor,"--sage-soft":db.settings.branding.accentColor}} key=${(screen?screen.k+(screen.id||""):tab)}>${view}</main>
     <nav className="nav" aria-label="Navegación principal"><div className="nav-in">
       ${NAV.map(([k,l,ic])=>html`<button key=${k} className=${!screen&&tab===k?"on":""} onClick=${()=>ctx.go(k)} aria-current=${!screen&&tab===k?"page":undefined}><i><${Icon} n=${ic} size=${21}/></i>${l}</button>`)}
     </div></nav>
@@ -755,5 +761,5 @@ function App(){
     ${toast&&html`<div className="toast" role="status">${toast}</div>`}
   <//>`;
 }
-export function LegacyApp(){ return html`<${App}/>`; }
+export function LegacyApp(runtime){ return html`<${App} runtime=${runtime}/>`; }
 

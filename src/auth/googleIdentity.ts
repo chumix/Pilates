@@ -1,6 +1,6 @@
 import type { GoogleUser } from "../google/types";
 const GIS = "https://accounts.google.com/gsi/client";
-export const SCOPES = ["openid", "email", "profile", "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/spreadsheets"].join(" ");
+export const SCOPES = ["openid", "email", "profile", "https://www.googleapis.com/auth/drive.file"].join(" ");
 function loadScript(): Promise<void> {
   if (window.google?.accounts) return Promise.resolve();
   return new Promise((resolve, reject) => {

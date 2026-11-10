@@ -1,9 +1,9 @@
 {
-  "version": "2.3.2",
-  "title": "Avisos visuales y navegación de Centro",
+  "version": "2.3.3",
+  "title": "Formularios de Centro corregidos",
   "changes": [
-    "Nuevo icono de Centro",
-    "Centro sin botón Volver",
-    "Avisos de aforo y material en agenda y calendario"
+    "Campos superiores siempre visibles",
+    "Desplazamiento completo en salas y material",
+    "Mejor adaptación a pantallas móviles"
   ]
 }

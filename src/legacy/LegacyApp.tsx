@@ -176,7 +176,7 @@ function Header({title,sub,right}){
 }
 function Sheet({title,onClose,children,footer,className=""}){
   useEffect(()=>{const f=e=>{if(e.key==="Escape")onClose()};window.addEventListener("keydown",f);return()=>window.removeEventListener("keydown",f)},[onClose]);
-  return html`<div className="ov" onMouseDown=${e=>{if(e.target===e.currentTarget)onClose()}}>
+  return html`<div className=${"ov "+(className?"ov-form":"")} onMouseDown=${e=>{if(e.target===e.currentTarget)onClose()}}>
     <div className=${"sheet "+className} role="dialog" aria-modal="true" aria-label=${title}>
       <div className="sheet-h"><h2>${title}</h2><button className="icon-btn" onClick=${onClose} aria-label="Cerrar"><${Icon} n="x"/></button></div>
       <div className="sheet-b">${children}</div>

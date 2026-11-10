@@ -261,3 +261,11 @@ code.k{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;backgr
 
 /* Pilario 2.3.2: visual warnings and center navigation */
 .warning-badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}.warning-badge{display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border-radius:999px;font-size:11px;font-weight:800;line-height:1}.warning-badge.capacity{background:#fff0dd;color:#95520a}.warning-badge.material{background:#fff0f0;color:#a23737}.warning-badges.compact{margin:2px 0}.warning-badges.compact .warning-badge{font-size:0;padding:4px}.warning-badges.compact .warning-badge svg{width:13px;height:13px}.slotchip:has(.warning-badge){outline:2px solid #e6a04a;outline-offset:1px}
+
+/* Pilario 2.3.3: formularios siempre accesibles */
+.ov-form{align-items:flex-start;overflow-y:auto;overscroll-behavior:contain;padding:max(12px,env(safe-area-inset-top,0px)) 0 max(12px,env(safe-area-inset-bottom,0px))}
+.ov-form .center-form-sheet{margin:auto 10px;max-height:calc(100dvh - max(24px,env(safe-area-inset-top,0px) + env(safe-area-inset-bottom,0px)));width:min(calc(100% - 20px),640px);border-radius:22px;overflow:hidden}
+.center-form-sheet .sheet-h{position:relative;flex:0 0 auto;padding-top:16px}
+.center-form-sheet .sheet-b{min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-top:14px}
+.center-form-sheet .sheet-f{position:relative;flex:0 0 auto}
+@media(max-width:600px){.ov-form{padding-top:max(10px,env(safe-area-inset-top,0px));padding-bottom:max(10px,env(safe-area-inset-bottom,0px))}.ov-form .center-form-sheet{margin:auto 8px;max-height:calc(100dvh - 20px);width:calc(100% - 16px)}}

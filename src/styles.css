@@ -269,3 +269,42 @@ code.k{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;backgr
 .center-form-sheet .sheet-b{min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-top:14px}
 .center-form-sheet .sheet-f{position:relative;flex:0 0 auto}
 @media(max-width:600px){.ov-form{padding-top:max(10px,env(safe-area-inset-top,0px));padding-bottom:max(10px,env(safe-area-inset-bottom,0px))}.ov-form .center-form-sheet{margin:auto 8px;max-height:calc(100dvh - 20px);width:calc(100% - 16px)}}
+
+/* Pilario 2.3.4: un único scroll fiable para formularios de Centro */
+.ov-form{
+  display:block;
+  overflow-x:hidden;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-y:contain;
+  padding:max(12px,env(safe-area-inset-top,0px)) 0 max(24px,env(safe-area-inset-bottom,0px));
+}
+.ov-form .center-form-sheet{
+  display:flex;
+  width:min(calc(100% - 20px),640px);
+  height:auto;
+  min-height:0;
+  max-height:none;
+  margin:0 auto;
+  overflow:visible;
+  border-radius:22px;
+}
+.ov-form .center-form-sheet .sheet-h,
+.ov-form .center-form-sheet .sheet-b,
+.ov-form .center-form-sheet .sheet-f{
+  flex:none;
+  position:relative;
+}
+.ov-form .center-form-sheet .sheet-b{
+  overflow:visible;
+  min-height:auto;
+  max-height:none;
+}
+.ov-form .center-form-sheet .sheet-f{
+  padding-bottom:max(16px,env(safe-area-inset-bottom,0px));
+  border-radius:0 0 22px 22px;
+}
+@media(max-width:600px){
+  .ov-form{padding:10px 0 calc(90px + env(safe-area-inset-bottom,0px));}
+  .ov-form .center-form-sheet{width:calc(100% - 16px);margin:0 auto;max-height:none;}
+}

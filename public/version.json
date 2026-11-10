@@ -1,9 +1,9 @@
 {
-  "version": "2.3.3",
-  "title": "Formularios de Centro corregidos",
+  "version": "2.3.4",
+  "title": "Desplazamiento completo en Centro",
   "changes": [
-    "Campos superiores siempre visibles",
-    "Desplazamiento completo en salas y material",
-    "Mejor adaptación a pantallas móviles"
+    "Scroll único y fiable en los formularios",
+    "Acceso completo a todos los campos",
+    "Botones Cancelar y Guardar siempre alcanzables"
   ]
 }

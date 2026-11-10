@@ -1,0 +1,10 @@
+{
+  "version": "2.3.0",
+  "title": "Centro, seguimiento y planificación semanal",
+  "changes": [
+    "Salas e inventario de material",
+    "Valoración y comentario de clases",
+    "Resumen de horas semanales",
+    "Clases puntuales o semanales"
+  ]
+}

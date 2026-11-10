@@ -1,8 +1,8 @@
 export const APP_INFO = {
   name: "Pilario",
   tagline: "Gestión sencilla para profesionales de Pilates",
-  version: "2.2.1",
-  releaseDate: "2026-11-09",
+  version: "2.3.2",
+  releaseDate: "2026-11-10",
   dataFileName: "Pilario - Datos",
   legacyDataFileName: "Pilates Ángela - Datos",
   developer: { name: "chumix", email: "chumix@gmail.com" },
@@ -17,6 +17,12 @@ export const DEFAULT_BRANDING = {
 } as const;
 
 export const VERSION_HISTORY = [
+  {version:"2.3.2",date:"10 de noviembre de 2026",title:"Mejoras visuales de Centro y avisos",changes:["Centro sin botón Volver cuando forma parte del menú principal.","Nuevo icono de edificio para Centro.","Avisos visuales de aforo y material en Agenda de hoy y Calendario."]},
+  {version:"2.3.1",date:"10 de noviembre de 2026",title:"Correcciones de centro y aforo",changes:["Centro añadido a la navegación inferior.","Corregido el alta de salas y material.","Resumen semanal visible en Inicio.","Avisos de aforo persistentes.","Formulario de centro reposicionado en pantallas pequeñas.","Material simplificado sin categorías."]},
+  {
+    version: "2.3.0", date: "10 de noviembre de 2026", title: "Centro y seguimiento semanal",
+    changes: ["Aviso de nuevas versiones.","Gestión de salas e inventario.","Material necesario y avisos de disponibilidad.","Valoración y comentario por clase.","Horas contratadas y resumen semanal.","Semana ISO y clases puntuales o semanales.","Mejorada la cabecera móvil."],
+  },
   {
     version: "2.2.1",
     date: "9 de noviembre de 2026",

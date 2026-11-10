@@ -18,6 +18,7 @@ const DAYS_LONG=["lunes","martes","miércoles","jueves","viernes","sábado","dom
 const fmtLong=d=>new Intl.DateTimeFormat("es-ES",{weekday:"long",day:"numeric",month:"long"}).format(d);
 const fmtShort=d=>new Intl.DateTimeFormat("es-ES",{day:"numeric",month:"short"}).format(d);
 const parseISO=s=>{const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)};
+const isoWeek=d=>{const x=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));x.setUTCDate(x.getUTCDate()+4-(x.getUTCDay()||7));const y=new Date(Date.UTC(x.getUTCFullYear(),0,1));return Math.ceil((((x-y)/86400000)+1)/7)};
 const fmtMin=m=>m>=60?(Math.floor(m/60)+" h"+(m%60?" "+pad(m%60)+" min":"")):(m+" min");
 const toggle=(arr,v)=>arr.includes(v)?arr.filter(x=>x!==v):[...arr,v];
 const norm=s=>(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
@@ -110,10 +111,16 @@ function seed(){
   attendance["sl6|"+w(-4)]=["s1","s6","s8"];
   attendance["sl1|"+w(0)]=["s2","s3","s4","s7"];
   attendance["sl3|"+w(1)]=["s1","s2","s6","s8"];
-  return {v:1,students,exercises,templates,slots,attendance,settings:{branding:{...DEFAULT_BRANDING},status:"local",lastSync:null}};
+  return {v:2,students,exercises,templates,slots:slots.map(x=>({...x,recurrence:"weekly",date:""})),attendance,feedback:{},rooms:[{id:"r1",name:"Sala principal",location:"",capacity:8,notes:""}],inventory:[{id:"m1",name:"Esterillas",category:"Esterillas",total:10,outOfService:0,roomId:"r1",notes:""}],settings:{branding:{...DEFAULT_BRANDING},contractedHours:20,status:"local",lastSync:null}};
+}
+function normalizeDb(d){
+  const base=seed();
+  return {...base,...d,v:2,feedback:d.feedback||{},rooms:d.rooms?.length?d.rooms:base.rooms,inventory:d.inventory?.length?d.inventory:base.inventory,
+    slots:(d.slots||[]).map(x=>({...x,recurrence:x.recurrence||"weekly",date:x.date||"",roomId:x.roomId||"",equipment:x.equipment||[]})),
+    settings:{...base.settings,...(d.settings||{}),contractedHours:Number(d.settings?.contractedHours||20),branding:{...DEFAULT_BRANDING,...(d.settings?.branding||{})}}};
 }
 function load(){
-  try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);if(d&&d.v===1)return d;}}catch(e){}
+  try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);if(d)return normalizeDb(d);}}catch(e){}
   return seed();
 }
 
@@ -140,7 +147,9 @@ const P={
   cloud:"M17.5 19H9a7 7 0 1 1 6.7-9h1.8a4.5 4.5 0 1 1 0 9z",
   shield:"M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
   user:"M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
-  copy:"M9 9h11a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+  copy:"M9 9h11a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1",
+  building:"M3 21h18 M5 21V7l7-4 7 4v14 M9 21v-5h6v5 M9 9h.01 M15 9h.01 M9 12h.01 M15 12h.01",
+  warning:"M12 3 2 21h20L12 3z M12 9v5 M12 18h.01"
 };
 function Icon({n,size=20,sw=2}){
   return html`<svg width=${size} height=${size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth=${sw} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">${P[n].split(" M").map((d,i)=>html`<path key=${i} d=${(i?"M":"")+d}/>`)}</svg>`;
@@ -165,10 +174,10 @@ function Header({title,sub,right}){
     </div>
   </header>`;
 }
-function Sheet({title,onClose,children,footer}){
+function Sheet({title,onClose,children,footer,className=""}){
   useEffect(()=>{const f=e=>{if(e.key==="Escape")onClose()};window.addEventListener("keydown",f);return()=>window.removeEventListener("keydown",f)},[onClose]);
   return html`<div className="ov" onMouseDown=${e=>{if(e.target===e.currentTarget)onClose()}}>
-    <div className="sheet" role="dialog" aria-modal="true" aria-label=${title}>
+    <div className=${"sheet "+className} role="dialog" aria-modal="true" aria-label=${title}>
       <div className="sheet-h"><h2>${title}</h2><button className="icon-btn" onClick=${onClose} aria-label="Cerrar"><${Icon} n="x"/></button></div>
       <div className="sheet-b">${children}</div>
       ${footer&&html`<div className="sheet-f">${footer}</div>`}
@@ -196,6 +205,21 @@ function exConflicts(ex,student){return ex.contra.filter(k=>student.pat.includes
 function slotName(db,s){const t=db.templates.find(x=>x.id===s.templateId);return t?t.name:"Clase sin plantilla";}
 function presentIds(db,slot,date){const a=db.attendance[slot.id+"|"+date]||[];return a.filter(id=>slot.students.includes(id));}
 
+function slotWarningState(db,slot){
+  const students=slot.students?.length||0;
+  const room=db.rooms?.find(r=>r.id===slot.roomId);
+  const capacity=students>Number(slot.capacity||0)||(room&&Number(slot.capacity||0)>Number(room.capacity||0));
+  const material=(slot.equipment||[]).some(req=>{const item=db.inventory?.find(m=>m.id===req.id);if(!item)return false;const needed=req.perStudent?Number(req.qty||0)*students:Number(req.qty||0);return needed>Math.max(0,Number(item.total||0)-Number(item.outOfService||0))});
+  return {capacity,material,any:capacity||material};
+}
+function WarningBadges({state,compact=false}){
+  if(!state?.any)return null;
+  return html`<span className=${"warning-badges"+(compact?" compact":"")} aria-label="Avisos de la clase">
+    ${state.capacity&&html`<span className="warning-badge capacity" title="Aforo o capacidad de sala superados"><${Icon} n="warning" size=${compact?13:15}/>Aforo</span>`}
+    ${state.material&&html`<span className="warning-badge material" title="Material insuficiente"><${Icon} n="warning" size=${compact?13:15}/>Material</span>`}
+  </span>`;
+}
+
 /* ---------- INICIO ---------- */
 function Home(){
   const {db,go,open,openSheet,runtime}=useC();
@@ -205,17 +229,27 @@ function Home(){
   const branding={...DEFAULT_BRANDING,...(db.settings?.branding||{})};
   const googleName=(runtime.user?.name||"").split(" ")[0];
   const instructor=branding.instructorName||googleName||"Instructor/a";
-  const slots=db.slots.filter(s=>s.day===dayIdx(now)).sort((a,b)=>a.time.localeCompare(b.time));
+  const slots=db.slots.filter(s=>(s.recurrence!=="once"&&s.day===dayIdx(now))||(s.recurrence==="once"&&s.date===today)).sort((a,b)=>a.time.localeCompare(b.time));
   const nowT=pad(h)+":"+pad(now.getMinutes());
   const nextId=(slots.find(s=>s.time>=nowT)||{}).id;
   const activos=db.students.filter(s=>s.active).length;
   const presentes=slots.reduce((n,s)=>n+presentIds(db,s,today).length,0);
+  const ws=monday(now),we=addDays(ws,6),weekSlots=db.slots.filter(s=>s.recurrence!=="once"||(s.date>=iso(ws)&&s.date<=iso(we)));
+  const programmedMin=weekSlots.reduce((n,s)=>{const t=db.templates.find(x=>x.id===s.templateId);return n+(t?tplTotal(t):60)},0);
+  const contracted=Number(db.settings?.contractedHours||20),programmed=programmedMin/60,remaining=Math.max(0,contracted-programmed);
   return html`<section className="screen">
     <${Header} title=${greet+", "+instructor} sub=${fmtLong(now)}/>
     <div className="stats">
       <div className="stat hero"><b>${slots.length}</b><span>${slots.length===1?"clase hoy":"clases hoy"}</span></div>
       <div className="stat"><b>${activos}</b><span>alumnos activos</span></div>
       <div className="stat"><b>${presentes}</b><span>asistencias hoy</span></div>
+    </div>
+    <div className="sect"><h2>Resumen semanal</h2><span className="small muted">Semana ${isoWeek(now)}</span></div>
+    <div className="card weekly-summary">
+      <div><b>${programmed.toLocaleString("es-ES",{maximumFractionDigits:1})} h</b><span>programadas</span></div>
+      <div><b>${contracted.toLocaleString("es-ES",{maximumFractionDigits:1})} h</b><span>contratadas</span></div>
+      <div><b>${remaining.toLocaleString("es-ES",{maximumFractionDigits:1})} h</b><span>disponibles</span></div>
+      <div className="weekly-progress"><i style=${{width:Math.min(100,contracted?programmed/contracted*100:0)+"%"}}></i></div>
     </div>
     <div className="sect"><h2>Accesos directos</h2></div>
     <div className="quick">
@@ -227,11 +261,11 @@ function Home(){
     <div className="sect"><h2>Agenda de hoy</h2><button className="small" style=${{color:"var(--link)",fontWeight:700}} onClick=${()=>go("cal")}>Calendario</button></div>
     ${slots.length===0?html`<${Empty} title="Hoy no hay clases" text="Añade una desde el calendario para que aparezca aquí."/>`:
       html`<div className="list">${slots.map(s=>{
-        const pr=presentIds(db,s,today).length;const n=s.students.length;
+        const pr=presentIds(db,s,today).length;const n=s.students.length;const warningState=slotWarningState(db,s);
         return html`<button key=${s.id} className=${"item"+(s.id===nextId?" next":"")+(s.time<nowT&&s.id!==nextId?" past":"")} onClick=${()=>openSheet({k:"slot",id:s.id,date:today})}>
           <span className="time">${s.time}</span>
           <span className="grow">
-            <h3>${slotName(db,s)}</h3>
+            <h3>${slotName(db,s)}</h3><${WarningBadges} state=${warningState}/> 
             <span className="row wrap" style=${{gap:6,marginTop:4}}>
               <span className=${"chip sm "+(s.type==="Mat"?"mat":"ref")}>${s.type}</span>
               ${s.id===nextId&&html`<span className="chip sm ok">Siguiente</span>`}
@@ -556,6 +590,30 @@ function ExercisePicker({blockId,tplId,onClose}){
   <//>`;
 }
 
+
+/* ---------- CENTRO: SALAS Y MATERIAL ---------- */
+const MAT_CATS=["Esterillas","Pelotas","Palos","Rodillos","Aros","Bandas elásticas","Bloques","Otro"];
+function CenterManagement(){
+ const {db,up,back,say}=useC();
+ const [kind,setKind]=useState("material"),[edit,setEdit]=useState(null);
+ const remove=(type,id)=>up(d=>{d[type]=d[type].filter(x=>x.id!==id);if(type==="rooms"){d.inventory.forEach(m=>{if(m.roomId===id)m.roomId=""});d.slots.forEach(s=>{if(s.roomId===id)s.roomId=""})}});
+ return html`<section className="screen"><${Header} title="Centro" sub="Salas y material"/>
+ <div className="tabs"><button className=${kind==="material"?"on":""} onClick=${()=>setKind("material")}>Material</button><button className=${kind==="rooms"?"on":""} onClick=${()=>setKind("rooms")}>Salas</button></div>
+ <button className="btn-primary" onClick=${()=>setEdit({type:kind})}><${Icon} n="plus" size=${17}/>Añadir ${kind==="material"?"material":"sala"}</button>
+ <div className="list" style=${{marginTop:12}}>${kind==="material"?db.inventory.map(m=>{const room=db.rooms.find(r=>r.id===m.roomId);const available=Math.max(0,m.total-m.outOfService);return html`<button className="item" key=${m.id} onClick=${()=>setEdit({type:"material",id:m.id})}><span className="grow"><h3>${m.name}</h3><p>${room?room.name:"Sin ubicación asignada"}</p></span><span className="count">${available}/${m.total}<br/><span className="small muted">disponibles</span></span></button>`}):db.rooms.map(r=>html`<button className="item" key=${r.id} onClick=${()=>setEdit({type:"rooms",id:r.id})}><span className="grow"><h3>${r.name}</h3><p>${r.location||"Sin ubicación"}</p></span><span className="count">${r.capacity}<br/><span className="small muted">personas</span></span></button>`)}</div>
+ ${edit&&html`<${CenterForm} spec=${edit} onClose=${()=>setEdit(null)} onRemove=${remove}/>`}</section>`;
+}
+function CenterForm({spec,onClose,onRemove}){
+ const {db,up,say}=useC();const isMat=spec.type==="material";const src=(isMat?db.inventory:db.rooms).find(x=>x.id===spec.id);
+ const collection=isMat?"inventory":"rooms";
+ const [f,setF]=useState(src?{...src}:isMat?{name:"",total:1,outOfService:0,roomId:"",notes:""}:{name:"",location:"",capacity:6,notes:""});const set=(k,v)=>setF(x=>({...x,[k]:v}));
+ const save=()=>{if(!f.name.trim())return;up(d=>{const arr=d[collection];if(src)Object.assign(arr.find(x=>x.id===src.id),f);else arr.push({...f,id:uid()})});say("Guardado");onClose()};
+ return html`<${Sheet} className="center-form-sheet" title=${src?"Editar":"Añadir"} onClose=${onClose} footer=${html`<button className="btn-soft" onClick=${onClose}>Cancelar</button><button className="btn-primary" onClick=${save}>Guardar</button>`}>
+ <${Field} label="Nombre" id="c-name"><input className="in" value=${f.name} onInput=${e=>set("name",e.target.value)}/><//>
+ ${isMat?html`<div className="two"><${Field} label="Cantidad total" id="c-total"><input className="in" type="number" min="0" value=${f.total} onInput=${e=>set("total",Number(e.target.value))}/><//><${Field} label="Fuera de servicio" id="c-out"><input className="in" type="number" min="0" value=${f.outOfService} onInput=${e=>set("outOfService",Number(e.target.value))}/><//></div><${Field} label="Sala / ubicación" id="c-room"><select className="sel" value=${f.roomId} onChange=${e=>set("roomId",e.target.value)}><option value="">Sin asignar</option>${db.rooms.map(r=>html`<option value=${r.id}>${r.name}</option>`)}</select><//>`:html`<${Field} label="Ubicación" id="c-loc"><input className="in" value=${f.location} onInput=${e=>set("location",e.target.value)}/><//><${Field} label="Capacidad" id="c-cap"><input className="in" type="number" min="1" value=${f.capacity} onInput=${e=>set("capacity",Number(e.target.value))}/><//>`}
+ <${Field} label="Observaciones" id="c-notes"><textarea className="ta" value=${f.notes} onInput=${e=>set("notes",e.target.value)}></textarea><//>${src&&html`<${ConfirmBtn} label="Eliminar" onYes=${()=>{onRemove(collection,src.id);onClose()}}/>`}<//>`;
+}
+
 /* ---------- CALENDARIO ---------- */
 const HOURS=[8,9,10,11,12,13,14,15,16,17,18,19,20,21];
 function Calendar(){
@@ -564,8 +622,8 @@ function Calendar(){
   const start=addDays(monday(new Date()),off*7);const end=addDays(start,6);
   const todayIso=iso(new Date());
   const days=[...Array(7)].map((_,i)=>addDays(start,i));
-  const label=fmtShort(start)+" – "+fmtShort(end);
-  const slotsAt=(d,h)=>db.slots.filter(s=>s.day===d&&Number(s.time.slice(0,2))===h).sort((a,b)=>a.time.localeCompare(b.time));
+  const label="Semana "+isoWeek(start)+" · "+fmtShort(start)+" – "+fmtShort(end);
+  const slotsAt=(d,h)=>db.slots.filter(s=>((s.recurrence!=="once"&&s.day===d)||(s.recurrence==="once"&&s.date===iso(days[d])))&&Number(s.time.slice(0,2))===h).sort((a,b)=>a.time.localeCompare(b.time));
   return html`<section className="screen">
     <${Header} title="Calendario" sub="Semana tipo con asistencia" right=${html`<button className="icon-btn" style=${{background:"var(--btn)",color:"var(--on-btn)"}} onClick=${()=>openSheet({k:"slotForm",day:dayIdx(new Date()),time:"10:00"})} aria-label="Nueva clase"><${Icon} n="plus"/></button>`}/>
     <div className="weeknav">
@@ -586,14 +644,14 @@ function Calendar(){
               aria-label=${"Añadir clase el "+DAYS_LONG[i]+" a las "+pad(h)+":00"}
               onClick=${()=>openSheet({k:"slotForm",day:i,time:pad(h)+":00"})}
               onKeyDown=${e=>{if(e.key==="Enter"&&e.target===e.currentTarget)openSheet({k:"slotForm",day:i,time:pad(h)+":00"})}}>
-              ${ss.map(s=>{const pr=presentIds(db,s,iso(d)).length;
+              ${ss.map(s=>{const pr=presentIds(db,s,iso(d)).length;const warningState=slotWarningState(db,s);
                 return html`<button key=${s.id} className=${"slotchip"+(s.type==="Mat"?"":" ref")} onClick=${e=>{e.stopPropagation();openSheet({k:"slot",id:s.id,date:iso(d)})}}>
-                  <b>${s.time}</b><span>${slotName(db,s)}</span><em>${s.students.length}/${s.capacity}${pr>0?" · ✓"+pr:""}</em></button>`})}
+                  <b>${s.time}</b><span>${slotName(db,s)}</span><${WarningBadges} state=${warningState} compact=${true}/><em>${s.students.length}/${s.capacity}${pr>0?" · ✓"+pr:""}</em></button>`})}
             </div>`})}
         <//>`)}
       </div>
     </div>
-    <p className="hint">Toca una franja vacía para crear una clase o una clase para pasar lista. Las clases se repiten cada semana; la asistencia se guarda por fecha.</p>
+    <p className="hint">Toca una franja vacía para crear una clase o una clase para pasar lista. Las clases pueden ser puntuales o repetirse cada semana; la asistencia se guarda por fecha.</p>
   </section>`;
 }
 
@@ -613,12 +671,15 @@ function SlotSheet({id,date,onClose}){
   const enroll=sid=>{if(s.students.length>=s.capacity){say("La clase está completa");return}up(d=>{d.slots.find(x=>x.id===id).students.push(sid)})};
   const unenroll=sid=>up(d=>{const sl=d.slots.find(x=>x.id===id);sl.students=sl.students.filter(x=>x!==sid)});
   const nPres=enrolled.filter(st=>pres.includes(st.id)).length;
+  const equipmentWarnings=(s.equipment||[]).map(req=>{const mat=db.inventory.find(m=>m.id===req.id);if(!mat)return null;const needed=req.perStudent?req.qty*enrolled.length:req.qty;const available=Math.max(0,mat.total-mat.outOfService);return {name:mat.name,needed,available,short:Math.max(0,needed-available)}}).filter(x=>x&&x.short>0);
   return html`<${Sheet} title=${slotName(db,s)} onClose=${onClose} footer=${html`<button className="btn-soft" onClick=${()=>openSheet({k:"slotForm",id:s.id})}><${Icon} n="pencil" size=${18}/>Editar clase</button><button className="btn-primary" onClick=${onClose}>Listo</button>`}>
     <div className="row wrap" style=${{gap:8}}>
       <span className="chip"><${Icon} n="cal" size=${14}/>${fmtLong(d)}</span><span className="chip"><${Icon} n="clock" size=${14}/>${s.time}</span>
       <span className=${"chip "+(s.type==="Mat"?"mat":"ref")}>${s.type}</span>
       ${tpl&&html`<span className="chip">${fmtMin(tplTotal(tpl))}</span>`}
     </div>
+    ${s.students.length>s.capacity&&html`<${Alert}><b>Aforo superado</b><div>Hay ${s.students.length} alumnos inscritos para un aforo de ${s.capacity}. La clase permanece guardada, pero conviene ajustar el aforo o las inscripciones.</div><//>`}
+    ${(()=>{const room=db.rooms.find(r=>r.id===s.roomId);return room&&s.capacity>room.capacity?html`<${Alert}><b>Capacidad de sala superada</b><div>${room.name} admite ${room.capacity} personas y la clase tiene aforo ${s.capacity}.</div><//>`:null})()}
     <div className="card">
       <div className="row" style=${{marginBottom:6}}>
         <div className="grow"><div className="label">Asistencia</div><div style=${{fontFamily:"var(--f-display)",fontSize:22,fontWeight:600}}>${nPres} de ${enrolled.length} presentes</div></div>
@@ -631,6 +692,8 @@ function SlotSheet({id,date,onClose}){
           <span className="grow"><b style=${{fontWeight:600}}>${st.name}</b>${st.pat.length>0&&html`<span className="small muted" style=${{display:"block"}}>${st.pat.map(patLabel).join(", ")}</span>`}</span></button>
         <button className="mini" onClick=${()=>unenroll(st.id)} aria-label=${"Quitar a "+st.name+" de la clase"}><${Icon} n="x" size=${16}/></button></div>`})}
     </div>
+    <div className="card stack"><div className="label">Evaluación de la clase</div><div className="mood-picker">${[["good","🙂","Buena"],["neutral","😐","Normal"],["improvable","🙁","Mejorable"]].map(([k,face,label])=>html`<button type="button" className=${db.feedback[id+"|"+date]?.rating===k?"on":""} onClick=${()=>up(d=>{const key=id+"|"+date;d.feedback[key]={...(d.feedback[key]||{}),rating:k,completedAt:new Date().toISOString()}})}><span>${face}</span>${label}</button>`)}</div><textarea className="ta" placeholder="Comentario general: evolución del grupo, ajustes para la próxima clase…" value=${db.feedback[id+"|"+date]?.comment||""} onInput=${e=>up(d=>{const key=id+"|"+date;d.feedback[key]={...(d.feedback[key]||{}),comment:e.target.value,completedAt:new Date().toISOString()}})}></textarea></div>
+    ${equipmentWarnings.length>0&&html`<${Alert}><b>Material insuficiente</b>${equipmentWarnings.map(x=>html`<div key=${x.name}>${x.name}: faltan ${x.short} (${x.available} disponibles, ${x.needed} necesarios)</div>`)}<//>`}
     ${warns.length>0&&html`<${Alert}><b>Revisa la plantilla con estas alumnas</b>${warns.map(w=>html`<div key=${w.st.id} style=${{marginTop:4}}>${w.st.name.split(" ")[0]}: ${w.names.join(", ")}</div>`)}<//>`}
     ${!adding?html`<button className="btn-soft" onClick=${()=>setAdding(true)} disabled=${s.students.length>=s.capacity}><${Icon} n="plus" size=${18}/>${s.students.length>=s.capacity?"Clase completa":"Inscribir alumno"}</button>`:
       html`<div className="card"><div className="row" style=${{marginBottom:6}}><div className="label grow">Alumnos disponibles</div><button className="mini" onClick=${()=>setAdding(false)} aria-label="Cerrar lista"><${Icon} n="x" size=${16}/></button></div>
@@ -642,17 +705,24 @@ function SlotSheet({id,date,onClose}){
 function SlotForm({id,day,time,onClose}){
   const {db,up,say}=useC();
   const cur=db.slots.find(x=>x.id===id);
-  const [f,setF]=useState(cur?{day:cur.day,time:cur.time,type:cur.type,templateId:cur.templateId||"",capacity:cur.capacity}:{day:day??0,time:time||"10:00",type:"Mat",templateId:db.templates[0]?db.templates[0].id:"",capacity:6});
+  const [f,setF]=useState(cur?{day:cur.day,time:cur.time,type:cur.type,templateId:cur.templateId||"",capacity:cur.capacity,recurrence:cur.recurrence||"weekly",date:cur.date||"",roomId:cur.roomId||"",equipment:cur.equipment||[]}:{day:day??0,time:time||"10:00",type:"Mat",templateId:db.templates[0]?db.templates[0].id:"",capacity:6,recurrence:"weekly",date:"",roomId:"",equipment:[]});
   const set=(k,v)=>setF(p=>({...p,[k]:v}));
+  const enrolledCount=cur?.students?.length||0;
+  const selectedRoom=db.rooms.find(r=>r.id===f.roomId);
+  const capacityWarnings=[];
+  if(enrolledCount>f.capacity)capacityWarnings.push(`Hay ${enrolledCount} alumnos inscritos y el aforo indicado es ${f.capacity}`);
+  if(selectedRoom&&f.capacity>selectedRoom.capacity)capacityWarnings.push(`El aforo de la clase (${f.capacity}) supera la capacidad de ${selectedRoom.name} (${selectedRoom.capacity})`);
   const save=()=>{
     up(d=>{
-      if(cur)Object.assign(d.slots.find(x=>x.id===id),{day:f.day,time:f.time,type:f.type,templateId:f.templateId||null,capacity:f.capacity});
-      else d.slots.push({id:uid(),day:f.day,time:f.time,type:f.type,templateId:f.templateId||null,capacity:f.capacity,students:[]});
+      if(cur)Object.assign(d.slots.find(x=>x.id===id),{...f,templateId:f.templateId||null});
+      else d.slots.push({id:uid(),...f,templateId:f.templateId||null,students:[]});
     });
-    say(cur?"Clase actualizada":"Clase creada");onClose();
+    say(capacityWarnings.length?"Clase guardada con aviso de aforo":cur?"Clase actualizada":"Clase creada");onClose();
   };
   const remove=()=>{up(d=>{d.slots=d.slots.filter(x=>x.id!==id);for(const k in d.attendance)if(k.startsWith(id+"|"))delete d.attendance[k]});say("Clase eliminada");onClose();};
-  return html`<${Sheet} title=${cur?"Editar clase":"Nueva clase"} onClose=${onClose} footer=${html`<button className="btn-soft" onClick=${onClose}>Cancelar</button><button className="btn-primary" onClick=${save} disabled=${!f.time||(cur&&f.capacity<cur.students.length)}>Guardar</button>`}>
+  return html`<${Sheet} title=${cur?"Editar clase":"Nueva clase"} onClose=${onClose} footer=${html`<button className="btn-soft" onClick=${onClose}>Cancelar</button><button className="btn-primary" onClick=${save} disabled=${!f.time}>Guardar</button>`}>
+    <div className="field"><span className="lab">Repetición</span><div className="tags"><button type="button" className=${"chip btn"+(f.recurrence==="once"?" on":"")} onClick=${()=>set("recurrence","once")}>Clase puntual</button><button type="button" className=${"chip btn"+(f.recurrence==="weekly"?" on":"")} onClick=${()=>set("recurrence","weekly")}>Todas las semanas</button></div></div>
+    ${f.recurrence==="once"&&html`<${Field} label="Fecha" id="sl-date"><input id="sl-date" className="in" type="date" value=${f.date} onChange=${e=>{set("date",e.target.value);if(e.target.value)set("day",dayIdx(parseISO(e.target.value)))}}/><//>`}
     <div className="field"><span className="lab">Día</span><div className="tags">${DAYS.map((l,i)=>html`<button key=${l} type="button" className=${"chip btn"+(f.day===i?" on":"")} onClick=${()=>set("day",i)}>${l}</button>`)}</div></div>
     <div className="two">
       <${Field} label="Hora de inicio" id="sl-hora"><input id="sl-hora" className="in" type="time" value=${f.time} onChange=${e=>set("time",e.target.value)}/><//>
@@ -660,8 +730,11 @@ function SlotForm({id,day,time,onClose}){
     </div>
     ${cur&&f.capacity<cur.students.length&&html`<p className="err">Hay ${cur.students.length} alumnos inscritos. Quita alguno antes de reducir el aforo.</p>`}
     <div className="field"><span className="lab">Aparato</span><div className="tags">${["Mat","Reformer"].map(o=>html`<button key=${o} type="button" className=${"chip btn"+(f.type===o?" on":"")} onClick=${()=>set("type",o)}>${o}</button>`)}</div></div>
+    <${Field} label="Sala" id="sl-room"><select id="sl-room" className="sel" value=${f.roomId} onChange=${e=>set("roomId",e.target.value)}><option value="">Sin sala</option>${db.rooms.map(r=>html`<option value=${r.id}>${r.name} · capacidad ${r.capacity}</option>`)}</select><//>
+    <div className="field"><span className="lab">Material necesario</span><div className="equipment-list">${db.inventory.map(m=>{const req=f.equipment.find(x=>x.id===m.id);const available=Math.max(0,m.total-m.outOfService);return html`<div className="equipment-row"><label><input type="checkbox" checked=${!!req} onChange=${e=>set("equipment",e.target.checked?[...f.equipment,{id:m.id,qty:1,perStudent:false}]:f.equipment.filter(x=>x.id!==m.id))}/>${m.name}<span className="small muted">${available} disp.</span></label>${req&&html`<input className="in mini-number" type="number" min="1" value=${req.qty} onInput=${e=>set("equipment",f.equipment.map(x=>x.id===m.id?{...x,qty:Number(e.target.value)}:x))}/><button className=${"chip btn"+(req.perStudent?" on":"")} onClick=${()=>set("equipment",f.equipment.map(x=>x.id===m.id?{...x,perStudent:!x.perStudent}:x))}>por alumno</button>`}</div>`})}</div></div>
     <${Field} label="Plantilla de clase" id="sl-tpl"><select id="sl-tpl" className="sel" value=${f.templateId} onChange=${e=>set("templateId",e.target.value)}>
       <option value="">Sin plantilla</option>${db.templates.map(t=>html`<option key=${t.id} value=${t.id}>${t.name} · ${fmtMin(tplTotal(t))}</option>`)}</select><//>
+    ${capacityWarnings.length>0&&html`<${Alert}><b>Revisa el aforo</b>${capacityWarnings.map(x=>html`<div key=${x}>${x}. Puedes guardar igualmente.</div>`)}<//>`}
     ${cur&&html`<${ConfirmBtn} label="Eliminar clase" onYes=${remove}/>`}
   <//>`;
 }
@@ -671,7 +744,7 @@ async function resizeLogo(file){return new Promise((resolve,reject)=>{const read
 
 /* ---------- AJUSTES ---------- */
 function Settings(){
-  const {db,up,back,reset,runtime,say}=useC();
+  const {db,up,back,reset,runtime,say,open}=useC();
   const branding={...DEFAULT_BRANDING,...(db.settings?.branding||{})};
   const syncLabels={idle:"Sin conexión",loading:"Cargando datos",synced:"Sincronizado",saving:"Guardando cambios",error:"Error de sincronización"};
   const syncLabel=syncLabels[runtime.sync]||"Estado desconocido";
@@ -695,7 +768,7 @@ function Settings(){
       <p className="small muted">La personalización se guarda en la pestaña Config del archivo de datos.</p>
     </div>
 
-    <div className="sect"><h2>Google Drive</h2></div>
+    <div className="sect"><h2>Planificación laboral</h2></div><div className="card stack"><label>Horas contratadas por semana<input className="in" type="number" min="0" step="0.5" value=${db.settings.contractedHours||20} onInput=${e=>up(d=>{d.settings.contractedHours=Number(e.target.value)})}/></label><p className="small muted">Se comparan con las horas programadas en el resumen semanal.</p></div><div className="sect"><h2>Google Drive</h2></div>
     <div className="card stack">
       <div className="connection-title"><span className=${"connection-dot "+(runtime.sync==="error"?"error":runtime.sync==="saving"||runtime.sync==="loading"?"busy":"ok")}></span><div><strong>Google Drive conectado</strong><p className="small muted">${APP_INFO.dataFileName}</p></div></div>
       <div className="kv"><span className="k">Estado</span><span className="v">${syncLabel}</span></div>
@@ -714,7 +787,7 @@ function Settings(){
 }
 
 /* ---------- APP ---------- */
-const NAV=[["home","Inicio","home"],["alumnos","Alumnos","users"],["ej","Ejercicios","activity"],["plan","Clases","clip"],["cal","Calendario","cal"]];
+const NAV=[["home","Inicio","home"],["alumnos","Alumnos","users"],["ej","Ejercicios","activity"],["plan","Clases","clip"],["center","Centro","building"],["cal","Calendario","cal"]];
 function App({runtime}){
   const [db,setDb]=useState(()=>{const loaded=load();return {...loaded,settings:{...loaded.settings,branding:{...DEFAULT_BRANDING,...(loaded.settings?.branding||{})}}}});
   const [tab,setTab]=useState("home");
@@ -739,9 +812,9 @@ function App({runtime}){
   if(screen){
     if(screen.k==="student")view=html`<${StudentDetail} key=${screen.id} id=${screen.id}/>`;
     else if(screen.k==="template")view=html`<${TemplateEditor} key=${screen.id} id=${screen.id}/>`;
-    else view=html`<${Settings}/>`;
+    else if(screen.k==="center")view=html`<${CenterManagement}/>`; else view=html`<${Settings}/>`;
   }else{
-    view={home:html`<${Home}/>`,alumnos:html`<${Students}/>`,ej:html`<${Exercises}/>`,plan:html`<${Planner}/>`,cal:html`<${Calendar}/>`}[tab];
+    view={home:html`<${Home}/>`,alumnos:html`<${Students}/>`,ej:html`<${Exercises}/>`,plan:html`<${Planner}/>`,center:html`<${CenterManagement}/>` ,cal:html`<${Calendar}/>`}[tab];
   }
   let sv=null;
   if(sheet){

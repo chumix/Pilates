@@ -17,6 +17,7 @@ export function AppShell() {
   const [error, setError] = useState("");
   const [sync, setSync] = useState<SyncState>("idle");
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [updateInfo, setUpdateInfo] = useState<{version:string;title?:string;changes?:string[]}|null>(null);
   const repo = useRef<SheetsRepository | null>(null);
   const timer = useRef<number | undefined>(undefined);
 
@@ -56,6 +57,18 @@ export function AppShell() {
   }, [clientId, disconnect]);
 
   useEffect(() => { if (localStorage.getItem(CONNECTED_KEY) === "1") connect(false); return () => { delete window.pilatesCloud; }; }, [connect]);
+  useEffect(() => {
+    fetch(`./version.json?t=${Date.now()}`, {cache:"no-store"}).then(r=>r.ok?r.json():null).then(info=>{
+      if(info?.version && info.version!==APP_INFO.version && localStorage.getItem(`pilario-update-later-${info.version}`)!=="1") setUpdateInfo(info);
+    }).catch(()=>{});
+  }, []);
+  async function applyUpdate(){
+    const regs=await navigator.serviceWorker?.getRegistrations?.();
+    await Promise.all((regs||[]).map(r=>r.update()));
+    const keys=await caches?.keys?.();
+    await Promise.all((keys||[]).map(k=>caches.delete(k)));
+    window.location.reload();
+  }
 
   if (!ready) return <main className="auth-shell"><section className="auth-card">
     <img className="brand-logo" src="./pilario-logo.png" alt="" />
@@ -63,8 +76,8 @@ export function AppShell() {
     {error && <div className="auth-error">{error}</div>}
     <button className="btn-primary" onClick={() => connect(true)} disabled={busy}>{restoring ? "Reconectando con Google…" : busy ? "Conectando…" : "Continuar con Google"}</button>
     <p className="auth-meta">Tus datos se guardan de forma privada en tu Google Drive.</p>
-    <div className="beta-access"><strong>Beta privada</strong><span>Solo pueden entrar cuentas autorizadas.</span><a href={betaFormUrl || `mailto:${APP_INFO.developer.email}?subject=Solicitud%20de%20acceso%20a%20Pilario`} target={betaFormUrl ? "_blank" : undefined} rel="noreferrer">Solicitar acceso</a></div>
+    <div className="beta-access"><strong>Acceso limitado</strong><span>Solicita acceso para utilizar Pilario.</span><a href={betaFormUrl || `mailto:${APP_INFO.developer.email}?subject=Solicitud%20de%20acceso%20a%20Pilario`} target={betaFormUrl ? "_blank" : undefined} rel="noreferrer">Solicitar acceso</a></div>
   </section></main>;
 
-  return <><div className="account-badge">{user?.picture && <img src={user.picture} alt="" referrerPolicy="no-referrer"/>}<span>{user?.email}</span><button onClick={disconnect}>Salir</button></div><LegacyApp user={user} sync={sync} lastSyncedAt={lastSyncedAt}/></>;
+  return <>{updateInfo&&<div className="update-ov"><section className="update-card"><span className="version-number">Nueva versión {updateInfo.version}</span><h2>{updateInfo.title||"Actualización disponible"}</h2>{updateInfo.changes?.length&&<ul>{updateInfo.changes.map(x=><li key={x}>{x}</li>)}</ul>}<div className="update-actions"><button className="btn-soft" onClick={()=>{localStorage.setItem(`pilario-update-later-${updateInfo.version}`,"1");setUpdateInfo(null)}}>Recordar más tarde</button><button className="btn-primary" onClick={applyUpdate}>Actualizar ahora</button></div></section></div>}<div className="account-badge">{user?.picture && <img src={user.picture} alt="" referrerPolicy="no-referrer"/>}<span>{user?.email}</span><button onClick={disconnect}>Salir</button></div><LegacyApp user={user} sync={sync} lastSyncedAt={lastSyncedAt}/></>;
 }

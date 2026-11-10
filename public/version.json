@@ -1,0 +1,9 @@
+{
+  "version": "2.3.2",
+  "title": "Avisos visuales y navegación de Centro",
+  "changes": [
+    "Nuevo icono de Centro",
+    "Centro sin botón Volver",
+    "Avisos de aforo y material en agenda y calendario"
+  ]
+}

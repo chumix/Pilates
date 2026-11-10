@@ -36,6 +36,7 @@ jobs:
         run: npm run build
         env:
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+          VITE_BETA_FORM_URL: ${{ secrets.VITE_BETA_FORM_URL }}
 
       - name: Configurar GitHub Pages
         uses: actions/configure-pages@v5

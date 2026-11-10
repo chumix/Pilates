@@ -1,10 +1,10 @@
 {
-  "version": "2.3.0",
-  "title": "Centro, seguimiento y planificación semanal",
+  "version": "2.3.1",
+  "title": "Correcciones de centro, aforo y resumen semanal",
   "changes": [
-    "Salas e inventario de material",
-    "Valoración y comentario de clases",
-    "Resumen de horas semanales",
-    "Clases puntuales o semanales"
+    "Centro en el menú inferior",
+    "Alta de salas y material corregida",
+    "Resumen semanal visible",
+    "Avisos de aforo persistentes"
   ]
 }

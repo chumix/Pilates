@@ -172,10 +172,10 @@ function Header({title,sub,right}){
     </div>
   </header>`;
 }
-function Sheet({title,onClose,children,footer}){
+function Sheet({title,onClose,children,footer,className=""}){
   useEffect(()=>{const f=e=>{if(e.key==="Escape")onClose()};window.addEventListener("keydown",f);return()=>window.removeEventListener("keydown",f)},[onClose]);
   return html`<div className="ov" onMouseDown=${e=>{if(e.target===e.currentTarget)onClose()}}>
-    <div className="sheet" role="dialog" aria-modal="true" aria-label=${title}>
+    <div className=${"sheet "+className} role="dialog" aria-modal="true" aria-label=${title}>
       <div className="sheet-h"><h2>${title}</h2><button className="icon-btn" onClick=${onClose} aria-label="Cerrar"><${Icon} n="x"/></button></div>
       <div className="sheet-b">${children}</div>
       ${footer&&html`<div className="sheet-f">${footer}</div>`}
@@ -226,6 +226,13 @@ function Home(){
       <div className="stat hero"><b>${slots.length}</b><span>${slots.length===1?"clase hoy":"clases hoy"}</span></div>
       <div className="stat"><b>${activos}</b><span>alumnos activos</span></div>
       <div className="stat"><b>${presentes}</b><span>asistencias hoy</span></div>
+    </div>
+    <div className="sect"><h2>Resumen semanal</h2><span className="small muted">Semana ${isoWeek(now)}</span></div>
+    <div className="card weekly-summary">
+      <div><b>${programmed.toLocaleString("es-ES",{maximumFractionDigits:1})} h</b><span>programadas</span></div>
+      <div><b>${contracted.toLocaleString("es-ES",{maximumFractionDigits:1})} h</b><span>contratadas</span></div>
+      <div><b>${remaining.toLocaleString("es-ES",{maximumFractionDigits:1})} h</b><span>disponibles</span></div>
+      <div className="weekly-progress"><i style=${{width:Math.min(100,contracted?programmed/contracted*100:0)+"%"}}></i></div>
     </div>
     <div className="sect"><h2>Accesos directos</h2></div>
     <div className="quick">
@@ -573,20 +580,21 @@ function CenterManagement(){
  const {db,up,back,say}=useC();
  const [kind,setKind]=useState("material"),[edit,setEdit]=useState(null);
  const remove=(type,id)=>up(d=>{d[type]=d[type].filter(x=>x.id!==id);if(type==="rooms"){d.inventory.forEach(m=>{if(m.roomId===id)m.roomId=""});d.slots.forEach(s=>{if(s.roomId===id)s.roomId=""})}});
- return html`<section className="screen"><button className="back" onClick=${back}><${Icon} n="l" size=${18}/>Volver</button><${Header} title="Centro" sub="Salas y material"/>
+ return html`<section className="screen">${back&&html`<button className="back" onClick=${back}><${Icon} n="l" size=${18}/>Volver</button>`}<${Header} title="Centro" sub="Salas y material"/>
  <div className="tabs"><button className=${kind==="material"?"on":""} onClick=${()=>setKind("material")}>Material</button><button className=${kind==="rooms"?"on":""} onClick=${()=>setKind("rooms")}>Salas</button></div>
  <button className="btn-primary" onClick=${()=>setEdit({type:kind})}><${Icon} n="plus" size=${17}/>Añadir ${kind==="material"?"material":"sala"}</button>
- <div className="list" style=${{marginTop:12}}>${kind==="material"?db.inventory.map(m=>{const room=db.rooms.find(r=>r.id===m.roomId);const available=Math.max(0,m.total-m.outOfService);return html`<button className="item" key=${m.id} onClick=${()=>setEdit({type:"material",id:m.id})}><span className="grow"><h3>${m.name}</h3><p>${m.category}${room?" · "+room.name:""}</p></span><span className="count">${available}/${m.total}<br/><span className="small muted">disponibles</span></span></button>`}):db.rooms.map(r=>html`<button className="item" key=${r.id} onClick=${()=>setEdit({type:"rooms",id:r.id})}><span className="grow"><h3>${r.name}</h3><p>${r.location||"Sin ubicación"}</p></span><span className="count">${r.capacity}<br/><span className="small muted">personas</span></span></button>`)}</div>
+ <div className="list" style=${{marginTop:12}}>${kind==="material"?db.inventory.map(m=>{const room=db.rooms.find(r=>r.id===m.roomId);const available=Math.max(0,m.total-m.outOfService);return html`<button className="item" key=${m.id} onClick=${()=>setEdit({type:"material",id:m.id})}><span className="grow"><h3>${m.name}</h3><p>${room?room.name:"Sin ubicación asignada"}</p></span><span className="count">${available}/${m.total}<br/><span className="small muted">disponibles</span></span></button>`}):db.rooms.map(r=>html`<button className="item" key=${r.id} onClick=${()=>setEdit({type:"rooms",id:r.id})}><span className="grow"><h3>${r.name}</h3><p>${r.location||"Sin ubicación"}</p></span><span className="count">${r.capacity}<br/><span className="small muted">personas</span></span></button>`)}</div>
  ${edit&&html`<${CenterForm} spec=${edit} onClose=${()=>setEdit(null)} onRemove=${remove}/>`}</section>`;
 }
 function CenterForm({spec,onClose,onRemove}){
  const {db,up,say}=useC();const isMat=spec.type==="material";const src=(isMat?db.inventory:db.rooms).find(x=>x.id===spec.id);
- const [f,setF]=useState(src?{...src}:isMat?{name:"",category:"Esterillas",total:1,outOfService:0,roomId:"",notes:""}:{name:"",location:"",capacity:6,notes:""});const set=(k,v)=>setF(x=>({...x,[k]:v}));
- const save=()=>{if(!f.name.trim())return;up(d=>{const arr=d[spec.type];if(src)Object.assign(arr.find(x=>x.id===src.id),f);else arr.push({...f,id:uid()})});say("Guardado");onClose()};
- return html`<${Sheet} title=${src?"Editar":"Añadir"} onClose=${onClose} footer=${html`<button className="btn-soft" onClick=${onClose}>Cancelar</button><button className="btn-primary" onClick=${save}>Guardar</button>`}>
+ const collection=isMat?"inventory":"rooms";
+ const [f,setF]=useState(src?{...src}:isMat?{name:"",total:1,outOfService:0,roomId:"",notes:""}:{name:"",location:"",capacity:6,notes:""});const set=(k,v)=>setF(x=>({...x,[k]:v}));
+ const save=()=>{if(!f.name.trim())return;up(d=>{const arr=d[collection];if(src)Object.assign(arr.find(x=>x.id===src.id),f);else arr.push({...f,id:uid()})});say("Guardado");onClose()};
+ return html`<${Sheet} className="center-form-sheet" title=${src?"Editar":"Añadir"} onClose=${onClose} footer=${html`<button className="btn-soft" onClick=${onClose}>Cancelar</button><button className="btn-primary" onClick=${save}>Guardar</button>`}>
  <${Field} label="Nombre" id="c-name"><input className="in" value=${f.name} onInput=${e=>set("name",e.target.value)}/><//>
- ${isMat?html`<${Field} label="Categoría" id="c-cat"><select className="sel" value=${f.category} onChange=${e=>set("category",e.target.value)}>${MAT_CATS.map(x=>html`<option>${x}</option>`)}</select><//><div className="two"><${Field} label="Cantidad total" id="c-total"><input className="in" type="number" min="0" value=${f.total} onInput=${e=>set("total",Number(e.target.value))}/><//><${Field} label="Fuera de servicio" id="c-out"><input className="in" type="number" min="0" value=${f.outOfService} onInput=${e=>set("outOfService",Number(e.target.value))}/><//></div><${Field} label="Sala / ubicación" id="c-room"><select className="sel" value=${f.roomId} onChange=${e=>set("roomId",e.target.value)}><option value="">Sin asignar</option>${db.rooms.map(r=>html`<option value=${r.id}>${r.name}</option>`)}</select><//>`:html`<${Field} label="Ubicación" id="c-loc"><input className="in" value=${f.location} onInput=${e=>set("location",e.target.value)}/><//><${Field} label="Capacidad" id="c-cap"><input className="in" type="number" min="1" value=${f.capacity} onInput=${e=>set("capacity",Number(e.target.value))}/><//>`}
- <${Field} label="Observaciones" id="c-notes"><textarea className="ta" value=${f.notes} onInput=${e=>set("notes",e.target.value)}></textarea><//>${src&&html`<${ConfirmBtn} label="Eliminar" onYes=${()=>{onRemove(spec.type,src.id);onClose()}}/>`}<//>`;
+ ${isMat?html`<div className="two"><${Field} label="Cantidad total" id="c-total"><input className="in" type="number" min="0" value=${f.total} onInput=${e=>set("total",Number(e.target.value))}/><//><${Field} label="Fuera de servicio" id="c-out"><input className="in" type="number" min="0" value=${f.outOfService} onInput=${e=>set("outOfService",Number(e.target.value))}/><//></div><${Field} label="Sala / ubicación" id="c-room"><select className="sel" value=${f.roomId} onChange=${e=>set("roomId",e.target.value)}><option value="">Sin asignar</option>${db.rooms.map(r=>html`<option value=${r.id}>${r.name}</option>`)}</select><//>`:html`<${Field} label="Ubicación" id="c-loc"><input className="in" value=${f.location} onInput=${e=>set("location",e.target.value)}/><//><${Field} label="Capacidad" id="c-cap"><input className="in" type="number" min="1" value=${f.capacity} onInput=${e=>set("capacity",Number(e.target.value))}/><//>`}
+ <${Field} label="Observaciones" id="c-notes"><textarea className="ta" value=${f.notes} onInput=${e=>set("notes",e.target.value)}></textarea><//>${src&&html`<${ConfirmBtn} label="Eliminar" onYes=${()=>{onRemove(collection,src.id);onClose()}}/>`}<//>`;
 }
 
 /* ---------- CALENDARIO ---------- */
@@ -653,6 +661,8 @@ function SlotSheet({id,date,onClose}){
       <span className=${"chip "+(s.type==="Mat"?"mat":"ref")}>${s.type}</span>
       ${tpl&&html`<span className="chip">${fmtMin(tplTotal(tpl))}</span>`}
     </div>
+    ${s.students.length>s.capacity&&html`<${Alert}><b>Aforo superado</b><div>Hay ${s.students.length} alumnos inscritos para un aforo de ${s.capacity}. La clase permanece guardada, pero conviene ajustar el aforo o las inscripciones.</div><//>`}
+    ${(()=>{const room=db.rooms.find(r=>r.id===s.roomId);return room&&s.capacity>room.capacity?html`<${Alert}><b>Capacidad de sala superada</b><div>${room.name} admite ${room.capacity} personas y la clase tiene aforo ${s.capacity}.</div><//>`:null})()}
     <div className="card">
       <div className="row" style=${{marginBottom:6}}>
         <div className="grow"><div className="label">Asistencia</div><div style=${{fontFamily:"var(--f-display)",fontSize:22,fontWeight:600}}>${nPres} de ${enrolled.length} presentes</div></div>
@@ -680,15 +690,20 @@ function SlotForm({id,day,time,onClose}){
   const cur=db.slots.find(x=>x.id===id);
   const [f,setF]=useState(cur?{day:cur.day,time:cur.time,type:cur.type,templateId:cur.templateId||"",capacity:cur.capacity,recurrence:cur.recurrence||"weekly",date:cur.date||"",roomId:cur.roomId||"",equipment:cur.equipment||[]}:{day:day??0,time:time||"10:00",type:"Mat",templateId:db.templates[0]?db.templates[0].id:"",capacity:6,recurrence:"weekly",date:"",roomId:"",equipment:[]});
   const set=(k,v)=>setF(p=>({...p,[k]:v}));
+  const enrolledCount=cur?.students?.length||0;
+  const selectedRoom=db.rooms.find(r=>r.id===f.roomId);
+  const capacityWarnings=[];
+  if(enrolledCount>f.capacity)capacityWarnings.push(`Hay ${enrolledCount} alumnos inscritos y el aforo indicado es ${f.capacity}`);
+  if(selectedRoom&&f.capacity>selectedRoom.capacity)capacityWarnings.push(`El aforo de la clase (${f.capacity}) supera la capacidad de ${selectedRoom.name} (${selectedRoom.capacity})`);
   const save=()=>{
     up(d=>{
       if(cur)Object.assign(d.slots.find(x=>x.id===id),{...f,templateId:f.templateId||null});
       else d.slots.push({id:uid(),...f,templateId:f.templateId||null,students:[]});
     });
-    say(cur?"Clase actualizada":"Clase creada");onClose();
+    say(capacityWarnings.length?"Clase guardada con aviso de aforo":cur?"Clase actualizada":"Clase creada");onClose();
   };
   const remove=()=>{up(d=>{d.slots=d.slots.filter(x=>x.id!==id);for(const k in d.attendance)if(k.startsWith(id+"|"))delete d.attendance[k]});say("Clase eliminada");onClose();};
-  return html`<${Sheet} title=${cur?"Editar clase":"Nueva clase"} onClose=${onClose} footer=${html`<button className="btn-soft" onClick=${onClose}>Cancelar</button><button className="btn-primary" onClick=${save} disabled=${!f.time||(cur&&f.capacity<cur.students.length)}>Guardar</button>`}>
+  return html`<${Sheet} title=${cur?"Editar clase":"Nueva clase"} onClose=${onClose} footer=${html`<button className="btn-soft" onClick=${onClose}>Cancelar</button><button className="btn-primary" onClick=${save} disabled=${!f.time}>Guardar</button>`}>
     <div className="field"><span className="lab">Repetición</span><div className="tags"><button type="button" className=${"chip btn"+(f.recurrence==="once"?" on":"")} onClick=${()=>set("recurrence","once")}>Clase puntual</button><button type="button" className=${"chip btn"+(f.recurrence==="weekly"?" on":"")} onClick=${()=>set("recurrence","weekly")}>Todas las semanas</button></div></div>
     ${f.recurrence==="once"&&html`<${Field} label="Fecha" id="sl-date"><input id="sl-date" className="in" type="date" value=${f.date} onChange=${e=>{set("date",e.target.value);if(e.target.value)set("day",dayIdx(parseISO(e.target.value)))}}/><//>`}
     <div className="field"><span className="lab">Día</span><div className="tags">${DAYS.map((l,i)=>html`<button key=${l} type="button" className=${"chip btn"+(f.day===i?" on":"")} onClick=${()=>set("day",i)}>${l}</button>`)}</div></div>
@@ -702,6 +717,7 @@ function SlotForm({id,day,time,onClose}){
     <div className="field"><span className="lab">Material necesario</span><div className="equipment-list">${db.inventory.map(m=>{const req=f.equipment.find(x=>x.id===m.id);const available=Math.max(0,m.total-m.outOfService);return html`<div className="equipment-row"><label><input type="checkbox" checked=${!!req} onChange=${e=>set("equipment",e.target.checked?[...f.equipment,{id:m.id,qty:1,perStudent:false}]:f.equipment.filter(x=>x.id!==m.id))}/>${m.name}<span className="small muted">${available} disp.</span></label>${req&&html`<input className="in mini-number" type="number" min="1" value=${req.qty} onInput=${e=>set("equipment",f.equipment.map(x=>x.id===m.id?{...x,qty:Number(e.target.value)}:x))}/><button className=${"chip btn"+(req.perStudent?" on":"")} onClick=${()=>set("equipment",f.equipment.map(x=>x.id===m.id?{...x,perStudent:!x.perStudent}:x))}>por alumno</button>`}</div>`})}</div></div>
     <${Field} label="Plantilla de clase" id="sl-tpl"><select id="sl-tpl" className="sel" value=${f.templateId} onChange=${e=>set("templateId",e.target.value)}>
       <option value="">Sin plantilla</option>${db.templates.map(t=>html`<option key=${t.id} value=${t.id}>${t.name} · ${fmtMin(tplTotal(t))}</option>`)}</select><//>
+    ${capacityWarnings.length>0&&html`<${Alert}><b>Revisa el aforo</b>${capacityWarnings.map(x=>html`<div key=${x}>${x}. Puedes guardar igualmente.</div>`)}<//>`}
     ${cur&&html`<${ConfirmBtn} label="Eliminar clase" onYes=${remove}/>`}
   <//>`;
 }
@@ -735,7 +751,7 @@ function Settings(){
       <p className="small muted">La personalización se guarda en la pestaña Config del archivo de datos.</p>
     </div>
 
-    <div className="sect"><h2>Planificación laboral</h2></div><div className="card stack"><label>Horas contratadas por semana<input className="in" type="number" min="0" step="0.5" value=${db.settings.contractedHours||20} onInput=${e=>up(d=>{d.settings.contractedHours=Number(e.target.value)})}/></label><p className="small muted">Se comparan con las horas programadas en el resumen semanal.</p></div><div className="sect"><h2>Centro</h2></div><button className="item" onClick=${()=>open({k:"center"})}><span className="grow"><h3>Salas y material</h3><p>Inventario, capacidades y ubicaciones</p></span><${Icon} n="r" size=${18}/></button><div className="sect"><h2>Google Drive</h2></div>
+    <div className="sect"><h2>Planificación laboral</h2></div><div className="card stack"><label>Horas contratadas por semana<input className="in" type="number" min="0" step="0.5" value=${db.settings.contractedHours||20} onInput=${e=>up(d=>{d.settings.contractedHours=Number(e.target.value)})}/></label><p className="small muted">Se comparan con las horas programadas en el resumen semanal.</p></div><div className="sect"><h2>Google Drive</h2></div>
     <div className="card stack">
       <div className="connection-title"><span className=${"connection-dot "+(runtime.sync==="error"?"error":runtime.sync==="saving"||runtime.sync==="loading"?"busy":"ok")}></span><div><strong>Google Drive conectado</strong><p className="small muted">${APP_INFO.dataFileName}</p></div></div>
       <div className="kv"><span className="k">Estado</span><span className="v">${syncLabel}</span></div>
@@ -754,7 +770,7 @@ function Settings(){
 }
 
 /* ---------- APP ---------- */
-const NAV=[["home","Inicio","home"],["alumnos","Alumnos","users"],["ej","Ejercicios","activity"],["plan","Clases","clip"],["cal","Calendario","cal"]];
+const NAV=[["home","Inicio","home"],["alumnos","Alumnos","users"],["ej","Ejercicios","activity"],["plan","Clases","clip"],["center","Centro","sliders"],["cal","Calendario","cal"]];
 function App({runtime}){
   const [db,setDb]=useState(()=>{const loaded=load();return {...loaded,settings:{...loaded.settings,branding:{...DEFAULT_BRANDING,...(loaded.settings?.branding||{})}}}});
   const [tab,setTab]=useState("home");
@@ -781,7 +797,7 @@ function App({runtime}){
     else if(screen.k==="template")view=html`<${TemplateEditor} key=${screen.id} id=${screen.id}/>`;
     else if(screen.k==="center")view=html`<${CenterManagement}/>`; else view=html`<${Settings}/>`;
   }else{
-    view={home:html`<${Home}/>`,alumnos:html`<${Students}/>`,ej:html`<${Exercises}/>`,plan:html`<${Planner}/>`,cal:html`<${Calendar}/>`}[tab];
+    view={home:html`<${Home}/>`,alumnos:html`<${Students}/>`,ej:html`<${Exercises}/>`,plan:html`<${Planner}/>`,center:html`<${CenterManagement}/>` ,cal:html`<${Calendar}/>`}[tab];
   }
   let sv=null;
   if(sheet){

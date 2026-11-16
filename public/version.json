@@ -1,9 +1,11 @@
 {
-  "version": "2.3.4",
-  "title": "Desplazamiento completo en Centro",
+  "version": "2.4.0",
+  "title": "Preparaciones y estadísticas semanales",
   "changes": [
-    "Scroll único y fiable en los formularios",
-    "Acceso completo a todos los campos",
-    "Botones Cancelar y Guardar siempre alcanzables"
+    "Filtro Preparación en ejercicios",
+    "Catálogos editables",
+    "Copia segura al restablecer ejemplos",
+    "Asistencias enlazadas a la clase",
+    "Histórico semanal de estadísticas"
   ]
 }

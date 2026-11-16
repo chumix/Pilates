@@ -5,6 +5,7 @@ interface Window {
   pilatesCloud?: {
     save: (db: unknown) => void;
     syncNow: (db: unknown) => Promise<void>;
+    resetExamples: (db: unknown) => Promise<void>;
     disconnect: () => void;
     sheetUrl: string;
   };

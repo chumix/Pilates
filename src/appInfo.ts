@@ -1,8 +1,8 @@
 export const APP_INFO = {
   name: "Pilario",
   tagline: "Gestión sencilla para profesionales de Pilates",
-  version: "2.3.4",
-  releaseDate: "2026-11-10",
+  version: "2.4.0",
+  releaseDate: "2026-11-16",
   dataFileName: "Pilario - Datos",
   legacyDataFileName: "Pilates Ángela - Datos",
   developer: { name: "chumix", email: "chumix@gmail.com" },
@@ -17,6 +17,7 @@ export const DEFAULT_BRANDING = {
 } as const;
 
 export const VERSION_HISTORY = [
+  {version:"2.4.0",date:"16 de noviembre de 2026",title:"Preparaciones, catálogos y estadísticas",changes:["Nuevo filtro Preparación para agrupar ejercicios por montaje.","Niveles, enfoques, aparatos y preparaciones editables.","Restablecimiento seguro archivando el archivo anterior.","Asistencias del alumno enlazadas al detalle de la clase.","Estadísticas y comparativa histórica por semana."]},
   {version:"2.3.4",date:"10 de noviembre de 2026",title:"Desplazamiento completo en formularios",changes:["Los formularios de sala y material usan un único desplazamiento vertical.","Se puede llegar siempre a Observaciones, Cancelar y Guardar.","El formulario deja espacio para la navegación inferior del móvil."]},
   {version:"2.3.3",date:"10 de noviembre de 2026",title:"Corrección de formularios en móvil",changes:["Los formularios de salas y material muestran siempre los campos superiores.","El contenido del formulario puede desplazarse completamente.","Cabecera y botones permanecen accesibles en pantallas pequeñas."]},
   {version:"2.3.2",date:"10 de noviembre de 2026",title:"Mejoras visuales de Centro y avisos",changes:["Centro sin botón Volver cuando forma parte del menú principal.","Nuevo icono de edificio para Centro.","Avisos visuales de aforo y material en Agenda de hoy y Calendario."]},

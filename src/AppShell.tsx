@@ -46,6 +46,7 @@ export function AppShell() {
         save: (db) => { setSync("saving"); window.clearTimeout(timer.current); timer.current = window.setTimeout(() => syncNow(db).catch(e => setError(e instanceof Error ? e.message : "Error de sincronización")), 1200); },
         syncNow,
         disconnect,
+        resetExamples: async (db) => { await repository.archiveCurrentAndCreate(); await repository.save(db); markSynced(); },
         sheetUrl: repository.sheetUrl,
       };
       localStorage.setItem(CONNECTED_KEY, "1"); markSynced(); setReady(true);

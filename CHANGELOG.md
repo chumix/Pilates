@@ -1,3 +1,14 @@
+## [2.4.0] - 2026-11-16
+
+### Añadido
+- Preparación como cuarto filtro de ejercicios.
+- Catálogos editables de nivel, enfoque, aparato y preparación.
+- Estadísticas históricas por semana.
+- Enlaces desde las asistencias del alumno al detalle de la clase.
+
+### Seguridad de datos
+- Restablecer datos archiva y renombra la hoja existente antes de crear una nueva.
+
 # Historial de cambios
 
 ## [2.2.1] - 2026-11-09

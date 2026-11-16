@@ -27,6 +27,9 @@ const LEVELS=["Principiante","Intermedio","Avanzado"];
 const TYPES=["Mat","Reformer","Cadillac","Silla","Barril"];
 const TYPE_LABEL={Mat:"Suelo (Mat)",Reformer:"Reformer",Cadillac:"Cadillac",Silla:"Silla",Barril:"Barril"};
 const FOCI=["Core","Movilidad","Fuerza","Flexibilidad"];
+const SETUPS=["Sin preparación especial","Caja larga","Caja corta","Correas","Bandas elásticas","Tabla de salto","Barra de pies alta","Muelles ligeros","Muelles pesados"];
+const DEFAULT_CATALOGS={levels:LEVELS,types:TYPES,focus:FOCI,setups:SETUPS};
+const catalogs=db=>({...DEFAULT_CATALOGS,...(db.settings?.catalogs||{})});
 const PAT={
   lumbar:["Hernia lumbar","hernia lumbar"],
   cervical:["Patología cervical","patologías cervicales"],
@@ -44,7 +47,7 @@ const avIdx=n=>{let h=0;for(const c of n)h=(h*31+c.charCodeAt(0))%6;return h};
 
 /* ---------- datos de ejemplo ---------- */
 function seed(){
-  const ex=(id,name,type,level,focus,min,contra,desc)=>({id,name,type,level,focus,min,contra,desc,custom:false});
+  const ex=(id,name,type,level,focus,min,contra,desc,setup="Sin preparación especial")=>({id,name,type,level,focus,min,contra,desc,setup,custom:false});
   const exercises=[
     ex("e1","Respiración costal","Mat","Principiante","Movilidad",3,[],"Inhalación lateral hacia las costillas con las manos sobre la caja torácica. Activa el diafragma y prepara el core."),
     ex("e2","Gato-vaca","Mat","Principiante","Movilidad",3,[],"En cuadrupedia, alterna flexión y extensión de columna coordinando con la respiración. Suelta tensión lumbar y dorsal."),
@@ -68,6 +71,8 @@ function seed(){
     ex("e20","Side Stretch en barril","Barril","Intermedio","Flexibilidad",4,[],"Sobre el arco del barril, elonga el costado con los brazos en arco. Abre caja torácica y columna lateral."),
     ex("e21","Ladder Barrel","Barril","Avanzado","Flexibilidad",4,["hipertension","osteoporosis"],"Extensión completa de columna sobre el barril con apoyo en la escalera. Mucha amplitud, poco tiempo de permanencia.")
   ];
+  const setupExamples={e11:"Barra de pies alta",e12:"Correas",e13:"Muelles ligeros",e14:"Correas",e15:"Muelles pesados",e16:"Correas",e17:"Barra de pies alta"};
+  exercises.forEach(e=>{if(setupExamples[e.id])e.setup=setupExamples[e.id]});
   const it=(ex,min)=>({id:uid(),ex,min});
   const blocks=(a,b,c)=>[
     {id:uid(),title:"Calentamiento / Movilidad",target:10,items:a},
@@ -111,13 +116,13 @@ function seed(){
   attendance["sl6|"+w(-4)]=["s1","s6","s8"];
   attendance["sl1|"+w(0)]=["s2","s3","s4","s7"];
   attendance["sl3|"+w(1)]=["s1","s2","s6","s8"];
-  return {v:2,students,exercises,templates,slots:slots.map(x=>({...x,recurrence:"weekly",date:""})),attendance,feedback:{},rooms:[{id:"r1",name:"Sala principal",location:"",capacity:8,notes:""}],inventory:[{id:"m1",name:"Esterillas",category:"Esterillas",total:10,outOfService:0,roomId:"r1",notes:""}],settings:{branding:{...DEFAULT_BRANDING},contractedHours:20,status:"local",lastSync:null}};
+  return {v:2,students,exercises,templates,slots:slots.map(x=>({...x,recurrence:"weekly",date:""})),attendance,feedback:{},rooms:[{id:"r1",name:"Sala principal",location:"",capacity:8,notes:""}],inventory:[{id:"m1",name:"Esterillas",category:"Esterillas",total:10,outOfService:0,roomId:"r1",notes:""}],settings:{branding:{...DEFAULT_BRANDING},catalogs:structuredClone(DEFAULT_CATALOGS),contractedHours:20,status:"local",lastSync:null}};
 }
 function normalizeDb(d){
   const base=seed();
-  return {...base,...d,v:2,feedback:d.feedback||{},rooms:d.rooms?.length?d.rooms:base.rooms,inventory:d.inventory?.length?d.inventory:base.inventory,
+  return {...base,...d,v:3,exercises:(d.exercises||base.exercises).map(e=>({...e,setup:e.setup||"Sin preparación especial"})),feedback:d.feedback||{},rooms:d.rooms?.length?d.rooms:base.rooms,inventory:d.inventory?.length?d.inventory:base.inventory,
     slots:(d.slots||[]).map(x=>({...x,recurrence:x.recurrence||"weekly",date:x.date||"",roomId:x.roomId||"",equipment:x.equipment||[]})),
-    settings:{...base.settings,...(d.settings||{}),contractedHours:Number(d.settings?.contractedHours||20),branding:{...DEFAULT_BRANDING,...(d.settings?.branding||{})}}};
+    settings:{...base.settings,...(d.settings||{}),catalogs:{...DEFAULT_CATALOGS,...(d.settings?.catalogs||{})},contractedHours:Number(d.settings?.contractedHours||20),branding:{...DEFAULT_BRANDING,...(d.settings?.branding||{})}}};
 }
 function load(){
   try{const r=localStorage.getItem(KEY);if(r){const d=JSON.parse(r);if(d)return normalizeDb(d);}}catch(e){}
@@ -245,12 +250,12 @@ function Home(){
       <div className="stat"><b>${presentes}</b><span>asistencias hoy</span></div>
     </div>
     <div className="sect"><h2>Resumen semanal</h2><span className="small muted">Semana ${isoWeek(now)}</span></div>
-    <div className="card weekly-summary">
+    <button className="card weekly-summary weekly-link" onClick=${()=>go("stats")}>
       <div><b>${programmed.toLocaleString("es-ES",{maximumFractionDigits:1})} h</b><span>programadas</span></div>
       <div><b>${contracted.toLocaleString("es-ES",{maximumFractionDigits:1})} h</b><span>contratadas</span></div>
       <div><b>${remaining.toLocaleString("es-ES",{maximumFractionDigits:1})} h</b><span>disponibles</span></div>
       <div className="weekly-progress"><i style=${{width:Math.min(100,contracted?programmed/contracted*100:0)+"%"}}></i></div>
-    </div>
+    </button>
     <div className="sect"><h2>Accesos directos</h2></div>
     <div className="quick">
       <button className="qa" onClick=${()=>openSheet({k:"student"})}><i><${Icon} n="user"/></i>Nuevo alumno</button>
@@ -280,7 +285,7 @@ function Home(){
 
 /* ---------- ALUMNOS ---------- */
 function Students(){
-  const {db,open,openSheet}=useC();
+  const {db,open,openSheet}=useC();const cats=catalogs(db);
   const [q,setQ]=useState("");const [lv,setLv]=useState("Todos");
   const list=useMemo(()=>db.students.filter(s=>{
     if(lv!=="Todos"&&s.level!==lv)return false;
@@ -291,7 +296,7 @@ function Students(){
     <${Header} title="Alumnos" sub=${db.students.length+" en total"} right=${html`<button className="icon-btn" style=${{background:"var(--btn)",color:"var(--on-btn)"}} onClick=${()=>openSheet({k:"student"})} aria-label="Añadir alumno"><${Icon} n="plus"/></button>`}/>
     <label className="search"><${Icon} n="search" size=${18}/><input type="search" id="q-alumnos" placeholder="Buscar por nombre, teléfono o patología" value=${q} onInput=${e=>setQ(e.target.value)} aria-label="Buscar alumnos"/></label>
     <div className="scroller" style=${{marginTop:10}}>
-      ${["Todos",...LEVELS].map(l=>html`<button key=${l} className=${"chip btn"+(lv===l?" on":"")} onClick=${()=>setLv(l)}>${l}</button>`)}
+      ${["Todos",...cats.levels].map(l=>html`<button key=${l} className=${"chip btn"+(lv===l?" on":"")} onClick=${()=>setLv(l)}>${l}</button>`)}
     </div>
     <div className="list" style=${{marginTop:8}}>
       ${list.length===0?html`<${Empty} title="Sin resultados" text="Prueba con otro nombre o cambia el filtro de nivel."/>`:
@@ -378,15 +383,14 @@ function StudentDetail({id}){
           <p style=${{whiteSpace:"pre-wrap"}}>${n.text}</p></div>`)}
       <div className="sect" style=${{margin:"14px 2px 0"}}><h2>Asistencias</h2><span className="small muted">${att.length} registradas</span></div>
       ${att.length===0?html`<${Empty} title="Sin asistencias" text="Se registran al marcar presente en el calendario."/>`:
-        html`<div className="card" style=${{padding:"4px 16px"}}>${att.slice(0,20).map((a,i)=>html`<div key=${i} className="kv" style=${{alignItems:"center"}}>
-          <div className="k" style=${{width:78,fontVariantNumeric:"tabular-nums"}}>${fmtShort(parseISO(a.date))}</div>
-          <div className="v">${slotName(db,a.slot)}<div className="small muted">${DAYS_LONG[a.slot.day]} · ${a.slot.time} · ${a.slot.type}</div></div></div>`)}</div>`}
+        html`<div className="list">${att.slice(0,30).map((a,i)=>{const fb=db.feedback[a.slot.id+"|"+a.date];const mood=fb?.rating==="good"?"🙂":fb?.rating==="neutral"?"😐":fb?.rating==="improvable"?"🙁":"";return html`<button key=${i} className="item" onClick=${()=>openSheet({k:"slot",id:a.slot.id,date:a.date})}>
+          <div className="time">${fmtShort(parseISO(a.date))}</div><div className="grow"><h3>${slotName(db,a.slot)}</h3><p>${DAYS_LONG[a.slot.day]} · ${a.slot.time} · ${a.slot.type}</p>${fb?.comment&&html`<p className="attendance-comment">${fb.comment}</p>`}</div>${mood&&html`<span className="attendance-mood">${mood}</span>`}<${Icon} n="r" size=${18}/></button>`})}</div>`}
     </div>`}
   </section>`;
 }
 
 function StudentForm({id,onClose}){
-  const {db,up,say,back,screen}=useC();
+  const {db,up,say,back,screen}=useC();const cats=catalogs(db);
   const cur=db.students.find(x=>x.id===id);
   const [f,setF]=useState(cur?{...cur}:{name:"",level:"Principiante",pat:[],phone:"",email:"",birth:"",since:iso(new Date()),contra:"",clin:"",active:true});
   const set=(k,v)=>setF(p=>({...p,[k]:v}));
@@ -413,7 +417,7 @@ function StudentForm({id,onClose}){
       <${Field} label="Fecha de nacimiento" id="f-nac"><input id="f-nac" className="in" type="date" value=${f.birth} onChange=${e=>set("birth",e.target.value)}/><//>
       <${Field} label="Alumna desde" id="f-alta"><input id="f-alta" className="in" type="date" value=${f.since} onChange=${e=>set("since",e.target.value)}/><//>
     </div>
-    <div className="field"><span className="lab">Nivel</span><div className="tags">${LEVELS.map(l=>html`<button key=${l} type="button" className=${"chip btn"+(f.level===l?" on":"")} onClick=${()=>set("level",l)}>${l}</button>`)}</div></div>
+    <div className="field"><span className="lab">Nivel</span><div className="tags">${cats.levels.map(l=>html`<button key=${l} type="button" className=${"chip btn"+(f.level===l?" on":"")} onClick=${()=>set("level",l)}>${l}</button>`)}</div></div>
     <div className="field"><span className="lab">Patologías</span><div className="tags">${Object.keys(PAT).map(k=>html`<button key=${k} type="button" className=${"chip btn"+(f.pat.includes(k)?" on":"")} onClick=${()=>set("pat",toggle(f.pat,k))}>${patLabel(k)}</button>`)}</div></div>
     <${Field} label="Contraindicaciones" id="f-contra"><textarea id="f-contra" className="ta" value=${f.contra} onInput=${e=>set("contra",e.target.value)} placeholder="Movimientos o posiciones a evitar"></textarea><//>
     <${Field} label="Observaciones fisioterapéuticas" id="f-clin"><textarea id="f-clin" className="ta" value=${f.clin} onInput=${e=>set("clin",e.target.value)} placeholder="Diagnóstico, pautas del fisio, evolución"></textarea><//>
@@ -425,13 +429,13 @@ function StudentForm({id,onClose}){
 /* ---------- EJERCICIOS ---------- */
 function Exercises(){
   const {db,openSheet}=useC();
-  const [q,setQ]=useState("");const [ty,setTy]=useState("Todos");const [lv,setLv]=useState("Todos");const [fo,setFo]=useState("Todos");
-  const list=db.exercises.filter(e=>(ty==="Todos"||e.type===ty)&&(lv==="Todos"||e.level===lv)&&(fo==="Todos"||e.focus===fo)&&norm(e.name+" "+e.desc).includes(norm(q)));
+  const [q,setQ]=useState("");const [ty,setTy]=useState("Todos");const [lv,setLv]=useState("Todos");const [fo,setFo]=useState("Todos");const [se,setSe]=useState("Todos");const cats=catalogs(db);
+  const list=db.exercises.filter(e=>(ty==="Todos"||e.type===ty)&&(lv==="Todos"||e.level===lv)&&(fo==="Todos"||e.focus===fo)&&(se==="Todos"||e.setup===se)&&norm(e.name+" "+e.desc+" "+(e.setup||"")).includes(norm(q)));
   const chips=(opts,val,set,labels)=>html`<div className="scroller">${["Todos",...opts].map(o=>html`<button key=${o} className=${"chip btn"+(val===o?" on":"")} onClick=${()=>set(o)}>${labels&&labels[o]||o}</button>`)}</div>`;
   return html`<section className="screen">
     <${Header} title="Ejercicios" sub=${db.exercises.length+" en la biblioteca"} right=${html`<button className="icon-btn" style=${{background:"var(--btn)",color:"var(--on-btn)"}} onClick=${()=>openSheet({k:"exForm"})} aria-label="Crear ejercicio"><${Icon} n="plus"/></button>`}/>
     <label className="search"><${Icon} n="search" size=${18}/><input type="search" id="q-ej" placeholder="Buscar ejercicio" value=${q} onInput=${e=>setQ(e.target.value)} aria-label="Buscar ejercicios"/></label>
-    <div style=${{marginTop:10}}>${chips(TYPES,ty,setTy,TYPE_LABEL)}${chips(LEVELS,lv,setLv)}${chips(FOCI,fo,setFo)}</div>
+    <div style=${{marginTop:10}}>${chips(cats.types,ty,setTy,TYPE_LABEL)}${chips(cats.levels,lv,setLv)}${chips(cats.focus,fo,setFo)}${chips(cats.setups,se,setSe)}</div>
     <div className="list" style=${{marginTop:6}}>
       ${list.length===0?html`<${Empty} title="Ningún ejercicio coincide" text="Quita algún filtro o crea un ejercicio propio."/>`:
       list.map(e=>html`<button key=${e.id} className="item" onClick=${()=>openSheet({k:"exercise",id:e.id})}>
@@ -439,7 +443,7 @@ function Exercises(){
           <h3>${e.name}</h3>
           <span className="tags" style=${{marginTop:6}}>
             <span className=${"chip sm "+(e.type==="Mat"?"mat":"ref")}>${e.type}</span>
-            <span className="chip sm">${e.level}</span><span className="chip sm">${e.focus}</span>
+            <span className="chip sm">${e.level}</span><span className="chip sm">${e.focus}</span>${e.setup&&e.setup!=="Sin preparación especial"&&html`<span className="chip sm prep">${e.setup}</span>`}
             ${e.custom&&html`<span className="chip sm ok">Propio</span>`}
           </span>
         </span>
@@ -456,7 +460,7 @@ function ExerciseSheet({id,onClose}){
   const e=db.exercises.find(x=>x.id===id);if(!e)return null;
   const users=db.templates.filter(t=>t.blocks.some(b=>b.items.some(i=>i.ex===e.id)));
   return html`<${Sheet} title=${e.name} onClose=${onClose} footer=${html`<button className="btn-soft" onClick=${()=>openSheet({k:"exForm",id:e.id})}><${Icon} n="pencil" size=${18}/>Editar</button><button className="btn-primary" onClick=${onClose}>Cerrar</button>`}>
-    <div className="tags"><span className=${"chip "+(e.type==="Mat"?"mat":"ref")}>${TYPE_LABEL[e.type]}</span><span className="chip">${e.level}</span><span className="chip">${e.focus}</span><span className="chip"><${Icon} n="clock" size=${14}/>${e.min} min sugeridos</span></div>
+    <div className="tags"><span className=${"chip "+(e.type==="Mat"?"mat":"ref")}>${TYPE_LABEL[e.type]}</span><span className="chip">${e.level}</span><span className="chip">${e.focus}</span><span className="chip prep">${e.setup||"Sin preparación especial"}</span><span className="chip"><${Icon} n="clock" size=${14}/>${e.min} min sugeridos</span></div>
     <p>${e.desc||html`<span className="muted">Sin descripción.</span>`}</p>
     ${e.contra.length>0?html`<${Alert}><b>Contraindicaciones</b><div>Evitar en ${e.contra.map(patTxt).join(", ")}.</div><//>`:
       html`<div className="note"><${Icon} n="shield" size=${18}/><div>Sin contraindicaciones registradas. Adapta siempre a cada cuadro clínico.</div></div>`}
@@ -466,7 +470,7 @@ function ExerciseSheet({id,onClose}){
 function ExerciseForm({id,onClose}){
   const {db,up,say}=useC();
   const cur=db.exercises.find(x=>x.id===id);
-  const [f,setF]=useState(cur?{...cur}:{name:"",type:"Mat",level:"Principiante",focus:"Core",min:4,contra:[],desc:""});
+  const cats=catalogs(db);const [f,setF]=useState(cur?{setup:"Sin preparación especial",...cur}:{name:"",type:cats.types[0]||"Mat",level:cats.levels[0]||"Principiante",focus:cats.focus[0]||"Core",setup:cats.setups[0]||"Sin preparación especial",min:4,contra:[],desc:""});
   const set=(k,v)=>setF(p=>({...p,[k]:v}));
   const save=()=>{
     if(!f.name.trim())return;
@@ -480,9 +484,10 @@ function ExerciseForm({id,onClose}){
   const opt=(arr,k,labels)=>html`<div className="tags">${arr.map(o=>html`<button key=${o} type="button" className=${"chip btn"+(f[k]===o?" on":"")} onClick=${()=>set(k,o)}>${labels&&labels[o]||o}</button>`)}</div>`;
   return html`<${Sheet} title=${cur?"Editar ejercicio":"Nuevo ejercicio"} onClose=${onClose} footer=${html`<button className="btn-soft" onClick=${onClose}>Cancelar</button><button className="btn-primary" onClick=${save} disabled=${!f.name.trim()}>Guardar</button>`}>
     <${Field} label="Nombre" id="x-nombre"><input id="x-nombre" className="in" value=${f.name} onInput=${e=>set("name",e.target.value)} placeholder="Por ejemplo: Teaser"/><//>
-    <div className="field"><span className="lab">Aparato</span>${opt(TYPES,"type",TYPE_LABEL)}</div>
-    <div className="field"><span className="lab">Nivel</span>${opt(LEVELS,"level")}</div>
-    <div className="field"><span className="lab">Enfoque</span>${opt(FOCI,"focus")}</div>
+    <div className="field"><span className="lab">Aparato</span>${opt(cats.types,"type",TYPE_LABEL)}</div>
+    <div className="field"><span className="lab">Nivel</span>${opt(cats.levels,"level")}</div>
+    <div className="field"><span className="lab">Enfoque</span>${opt(cats.focus,"focus")}</div>
+    <div className="field"><span className="lab">Preparación</span>${opt(cats.setups,"setup")}</div>
     <div className="field"><span className="lab">Duración sugerida</span><div><${Stepper} value=${f.min} min=${1} max=${30} unit=" min" onChange=${v=>set("min",v)} label="Duración"/></div></div>
     <${Field} label="Descripción" id="x-desc"><textarea id="x-desc" className="ta" value=${f.desc} onInput=${e=>set("desc",e.target.value)} placeholder="Posición inicial, movimiento y puntos clave"></textarea><//>
     <div className="field"><span className="lab">Evitar en</span><div className="tags">${Object.keys(PAT).map(k=>html`<button key=${k} type="button" className=${"chip btn"+(f.contra.includes(k)?" on":"")} onClick=${()=>set("contra",toggle(f.contra,k))}>${patLabel(k)}</button>`)}</div></div>
@@ -578,18 +583,44 @@ function TemplateEditor({id}){
 function ExercisePicker({blockId,tplId,onClose}){
   const {db,up,say}=useC();
   const [q,setQ]=useState("");const [ty,setTy]=useState("Todos");const [added,setAdded]=useState(0);
-  const list=db.exercises.filter(e=>(ty==="Todos"||e.type===ty)&&norm(e.name+" "+e.focus).includes(norm(q)));
+  const list=db.exercises.filter(e=>(ty==="Todos"||e.type===ty)&&norm(e.name+" "+e.focus+" "+(e.setup||"")).includes(norm(q)));
   const add=e=>{up(d=>{const t=d.templates.find(x=>x.id===tplId);t.blocks.find(b=>b.id===blockId).items.push({id:uid(),ex:e.id,min:e.min})});setAdded(n=>n+1);say(e.name+" añadido");};
   return html`<${Sheet} title="Añadir ejercicios" onClose=${onClose} footer=${html`<button className="btn-primary" onClick=${onClose}>${added>0?"Listo ("+added+" añadidos)":"Cerrar"}</button>`}>
     <label className="search"><${Icon} n="search" size=${18}/><input type="search" id="q-picker" placeholder="Buscar en la biblioteca" value=${q} onInput=${e=>setQ(e.target.value)} aria-label="Buscar ejercicio"/></label>
     <div className="scroller">${["Todos",...TYPES].map(o=>html`<button key=${o} className=${"chip btn"+(ty===o?" on":"")} onClick=${()=>setTy(o)}>${TYPE_LABEL[o]||o}</button>`)}</div>
     <div className="list">${list.length===0?html`<${Empty} title="Sin resultados" text="Prueba con otra búsqueda."/>`:list.map(e=>html`<button key=${e.id} className="item" onClick=${()=>add(e)}>
-      <span className="grow"><h3>${e.name}</h3><p>${e.type} · ${e.level} · ${e.focus}</p>
+      <span className="grow"><h3>${e.name}</h3><p>${e.type} · ${e.level} · ${e.focus}${e.setup&&e.setup!=="Sin preparación especial"?" · "+e.setup:""}</p>
         ${e.contra.length>0&&html`<p style=${{color:"var(--warn)",marginTop:2}}>Evitar en ${e.contra.map(patTxt).join(", ")}</p>`}</span>
       <span className="count">${e.min}'</span><span style=${{color:"var(--link)"}}><${Icon} n="plus" size=${20}/></span></button>`)}</div>
   <//>`;
 }
 
+
+
+/* ---------- ESTADÍSTICAS SEMANALES ---------- */
+function weeklyStats(db,start){
+ const end=addDays(start,6),dates=[...Array(7)].map((_,i)=>iso(addDays(start,i)));
+ const occurrences=[];
+ db.slots.forEach(slot=>{if(slot.recurrence==="once"){if(slot.date>=iso(start)&&slot.date<=iso(end))occurrences.push({slot,date:slot.date})}else dates.forEach((date,i)=>{if(slot.day===i)occurrences.push({slot,date})})});
+ const minutes=occurrences.reduce((n,o)=>{const t=db.templates.find(x=>x.id===o.slot.templateId);return n+(t?tplTotal(t):60)},0);
+ const planned=occurrences.reduce((n,o)=>n+(o.slot.students?.length||0),0);
+ const present=occurrences.reduce((n,o)=>n+presentIds(db,o.slot,o.date).length,0);
+ const ratings={good:0,neutral:0,improvable:0};const comments=[];
+ occurrences.forEach(o=>{const f=db.feedback[o.slot.id+"|"+o.date];if(f?.rating)ratings[f.rating]++;if(f?.comment)comments.push({date:o.date,text:f.comment,name:slotName(db,o.slot)})});
+ const incidents=occurrences.filter(o=>slotWarningState(db,o.slot).any).length;
+ return {start,end,minutes,hours:minutes/60,classes:occurrences.length,planned,present,attendance:planned?Math.round(present/planned*100):0,ratings,comments,incidents};
+}
+function WeeklyStats(){
+ const {db}=useC();const [off,setOff]=useState(0);const start=addDays(monday(new Date()),off*7);const st=weeklyStats(db,start);const contracted=Number(db.settings?.contractedHours||20);const diff=contracted-st.hours;
+ const recent=[...Array(8)].map((_,i)=>weeklyStats(db,addDays(monday(new Date()),-i*7)));
+ return html`<section className="screen"><${Header} title="Estadísticas" sub="Resumen por semana"/><div className="weeknav"><button className="icon-btn" onClick=${()=>setOff(x=>x-1)}><${Icon} n="l"/></button><div className="lbl">Semana ${isoWeek(start)} · ${fmtShort(start)} – ${fmtShort(st.end)}</div>${off!==0&&html`<button className="btn-soft btn-sm" onClick=${()=>setOff(0)}>Actual</button>`}<button className="icon-btn" onClick=${()=>setOff(x=>x+1)}><${Icon} n="r"/></button></div>
+ <div className="stats stats-week"><div className="stat hero"><b>${st.hours.toLocaleString("es-ES",{maximumFractionDigits:1})} h</b><span>programadas</span></div><div className="stat"><b>${contracted} h</b><span>contratadas</span></div><div className="stat"><b>${Math.abs(diff).toLocaleString("es-ES",{maximumFractionDigits:1})} h</b><span>${diff>=0?"disponibles":"sobre objetivo"}</span></div></div>
+ <div className="sect"><h2>Actividad</h2></div><div className="card stats-detail"><div><b>${st.classes}</b><span>clases</span></div><div><b>${st.planned}</b><span>alumnos previstos</span></div><div><b>${st.present}</b><span>asistencias</span></div><div><b>${st.attendance}%</b><span>asistencia</span></div></div>
+ <div className="sect"><h2>Cómo fueron las clases</h2></div><div className="card mood-summary"><span>🙂 ${st.ratings.good} buenas</span><span>😐 ${st.ratings.neutral} normales</span><span>🙁 ${st.ratings.improvable} mejorables</span><span>⚠️ ${st.incidents} incidencias</span></div>
+ ${st.comments.length>0&&html`<><div className="sect"><h2>Comentarios</h2></div><div className="list">${st.comments.map((c,i)=>html`<div className="card" key=${i}><div className="small muted">${fmtShort(parseISO(c.date))} · ${c.name}</div><p>${c.text}</p></div>`)}</div></>`}
+ <div className="sect"><h2>Últimas 8 semanas</h2></div><div className="card history-chart">${recent.reverse().map(x=>html`<div className="history-bar" key=${iso(x.start)} title=${`Semana ${isoWeek(x.start)}: ${x.hours.toFixed(1)} h`}><i style=${{height:Math.min(100,contracted?x.hours/contracted*100:0)+"%"}}></i><span>S${isoWeek(x.start)}</span></div>`)}</div>
+ </section>`;
+}
 
 /* ---------- CENTRO: SALAS Y MATERIAL ---------- */
 const MAT_CATS=["Esterillas","Pelotas","Palos","Rodillos","Aros","Bandas elásticas","Bloques","Otro"];
@@ -742,6 +773,16 @@ function SlotForm({id,day,time,onClose}){
 
 async function resizeLogo(file){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>{const image=new Image();image.onload=()=>{const canvas=document.createElement("canvas");canvas.width=160;canvas.height=160;const ctx=canvas.getContext("2d");ctx.fillStyle="#ffffff";ctx.fillRect(0,0,160,160);const scale=Math.min(160/image.width,160/image.height);const w=image.width*scale,h=image.height*scale;ctx.drawImage(image,(160-w)/2,(160-h)/2,w,h);resolve(canvas.toDataURL("image/jpeg",.72))};image.onerror=reject;image.src=reader.result};reader.onerror=reject;reader.readAsDataURL(file)})}
 
+
+function CatalogManager(){
+ const {db,up,back,say}=useC();const cats=catalogs(db);const [kind,setKind]=useState("levels");const [draft,setDraft]=useState("");
+ const defs={levels:["Niveles","level"],focus:["Enfoques","focus"],types:["Aparatos","type"],setups:["Preparaciones","setup"]};const [label,field]=defs[kind];
+ const add=()=>{const v=draft.trim();if(!v||cats[kind].includes(v))return;up(d=>{d.settings.catalogs[kind].push(v)});setDraft("");say("Valor añadido")};
+ const rename=(old)=>{const v=prompt(`Nuevo nombre para ${old}`,old)?.trim();if(!v||v===old)return;up(d=>{d.settings.catalogs[kind]=d.settings.catalogs[kind].map(x=>x===old?v:x);d.exercises.forEach(e=>{if(e[field]===old)e[field]=v});if(kind==="levels")d.students.forEach(st=>{if(st.level===old)st.level=v})});say("Valor renombrado")};
+ const remove=(old)=>{const used=db.exercises.filter(e=>e[field]===old).length+(kind==="levels"?db.students.filter(st=>st.level===old).length:0);const alternatives=cats[kind].filter(x=>x!==old);const replacement=used&&alternatives.length?prompt(`${old} se usa ${used} veces. Escribe el valor sustituto:\n${alternatives.join(", ")}`,alternatives[0]):"";if(used&&(!replacement||!alternatives.includes(replacement)))return;up(d=>{d.settings.catalogs[kind]=d.settings.catalogs[kind].filter(x=>x!==old);d.exercises.forEach(e=>{if(e[field]===old)e[field]=replacement||""});if(kind==="levels")d.students.forEach(st=>{if(st.level===old)st.level=replacement||""})});say("Valor eliminado")};
+ return html`<section className="screen"><button className="back" onClick=${back}><${Icon} n="l" size=${18}/>Ajustes</button><${Header} title="Catálogos de ejercicios" sub="Edita filtros y clasificaciones"/><div className="tabs">${Object.entries(defs).map(([k,[l]])=>html`<button className=${kind===k?"on":""} onClick=${()=>setKind(k)}>${l}</button>`)}</div><div className="card stack"><div className="row"><input className="in grow" value=${draft} onInput=${e=>setDraft(e.target.value)} placeholder=${`Nuevo valor en ${label.toLowerCase()}`}/><button className="btn-primary btn-sm" onClick=${add}>Añadir</button></div><div className="catalog-list">${cats[kind].map(v=>html`<div className="catalog-row" key=${v}><span className="grow">${v}</span><button className="mini" onClick=${()=>rename(v)}><${Icon} n="pencil" size=${16}/></button><button className="mini" onClick=${()=>remove(v)}><${Icon} n="trash" size=${16}/></button></div>`)}</div></div><div className="note"><${Icon} n="shield" size=${18}/><div>Si renombras un valor, Pilario actualiza los ejercicios existentes. Si eliminas uno usado, tendrás que elegir un sustituto.</div></div></section>`;
+}
+
 /* ---------- AJUSTES ---------- */
 function Settings(){
   const {db,up,back,reset,runtime,say,open}=useC();
@@ -768,7 +809,7 @@ function Settings(){
       <p className="small muted">La personalización se guarda en la pestaña Config del archivo de datos.</p>
     </div>
 
-    <div className="sect"><h2>Planificación laboral</h2></div><div className="card stack"><label>Horas contratadas por semana<input className="in" type="number" min="0" step="0.5" value=${db.settings.contractedHours||20} onInput=${e=>up(d=>{d.settings.contractedHours=Number(e.target.value)})}/></label><p className="small muted">Se comparan con las horas programadas en el resumen semanal.</p></div><div className="sect"><h2>Google Drive</h2></div>
+    <div className="sect"><h2>Catálogos de ejercicios</h2></div><button className="item" onClick=${()=>open({k:"catalogs"})}><span className="grow"><h3>Niveles, enfoques, aparatos y preparaciones</h3><p>Añade, renombra o elimina opciones</p></span><${Icon} n="r" size=${18}/></button><div className="sect"><h2>Planificación laboral</h2></div><div className="card stack"><label>Horas contratadas por semana<input className="in" type="number" min="0" step="0.5" value=${db.settings.contractedHours||20} onInput=${e=>up(d=>{d.settings.contractedHours=Number(e.target.value)})}/></label><p className="small muted">Se comparan con las horas programadas en el resumen semanal.</p></div><div className="sect"><h2>Google Drive</h2></div>
     <div className="card stack">
       <div className="connection-title"><span className=${"connection-dot "+(runtime.sync==="error"?"error":runtime.sync==="saving"||runtime.sync==="loading"?"busy":"ok")}></span><div><strong>Google Drive conectado</strong><p className="small muted">${APP_INFO.dataFileName}</p></div></div>
       <div className="kv"><span className="k">Estado</span><span className="v">${syncLabel}</span></div>
@@ -782,7 +823,7 @@ function Settings(){
 
     <div className="sect"><h2>Histórico de cambios</h2></div><div className="version-list">${VERSION_HISTORY.map((release,index)=>html`<article className=${"card version-card "+(index===0?"current":"")} key=${release.version}><div className="version-head"><div><span className="version-number">v${release.version}</span><strong>${release.title}</strong></div><span className="small muted">${release.date}</span></div><ul className="change-list">${release.changes.map(change=>html`<li key=${change}>${change}</li>`)}</ul></article>`)}</div>
 
-    <div className="sect"><h2>Datos de ejemplo</h2></div><div className="card stack"><p className="small muted">Esta acción reemplaza los datos actuales por el conjunto de demostración.</p><${ConfirmBtn} label="Restablecer datos de ejemplo" icon="activity" onYes=${reset}/></div>
+    <div className="sect"><h2>Datos de ejemplo</h2></div><div className="card stack"><p className="small muted">Antes de restablecer, Pilario archivará el archivo actual en Google Drive y creará un nuevo Pilario - Datos con los ejemplos.</p><${ConfirmBtn} label="Restablecer datos de ejemplo" icon="activity" onYes=${reset}/></div>
   </section>`;
 }
 
@@ -804,7 +845,7 @@ function App({runtime}){
     open:s=>{setStack(a=>[...a,s]);window.scrollTo(0,0)},
     back:()=>{setStack(a=>a.slice(0,-1));window.scrollTo(0,0)},
     openSheet:s=>setSheets(a=>[...a,s]),
-    reset:()=>{const n=seed();setDb(n);setStack([]);setSheets([]);say("Datos de ejemplo restablecidos")}
+    reset:async()=>{const n=seed();try{if(window.pilatesCloud?.resetExamples)await window.pilatesCloud.resetExamples(n);setDb(n);setStack([]);setSheets([]);say("Copia archivada y datos de ejemplo creados")}catch(e){say("No se pudo crear la copia de seguridad")}}
   }),[db,up,say,screen,runtime]);
   const closeSheet=()=>setSheets(a=>a.slice(0,-1));
   const sheet=sheets[sheets.length-1];
@@ -812,9 +853,9 @@ function App({runtime}){
   if(screen){
     if(screen.k==="student")view=html`<${StudentDetail} key=${screen.id} id=${screen.id}/>`;
     else if(screen.k==="template")view=html`<${TemplateEditor} key=${screen.id} id=${screen.id}/>`;
-    else if(screen.k==="center")view=html`<${CenterManagement}/>`; else view=html`<${Settings}/>`;
+    else if(screen.k==="center")view=html`<${CenterManagement}/>`; else if(screen.k==="catalogs")view=html`<${CatalogManager}/>`; else view=html`<${Settings}/>`;
   }else{
-    view={home:html`<${Home}/>`,alumnos:html`<${Students}/>`,ej:html`<${Exercises}/>`,plan:html`<${Planner}/>`,center:html`<${CenterManagement}/>` ,cal:html`<${Calendar}/>`}[tab];
+    view={home:html`<${Home}/>`,alumnos:html`<${Students}/>`,ej:html`<${Exercises}/>`,plan:html`<${Planner}/>`,center:html`<${CenterManagement}/>`,stats:html`<${WeeklyStats}/>` ,cal:html`<${Calendar}/>`}[tab];
   }
   let sv=null;
   if(sheet){
